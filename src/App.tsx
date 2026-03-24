@@ -1,14 +1,20 @@
 import React, { useState } from 'react';
-import { FileText, Wand2, ArrowDownToLine, Loader2, FileWarning } from 'lucide-react';
+import { FileText, Wand2, ArrowDownToLine, Loader2, FileWarning, Calculator, CheckCircle2, XCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { getSelectedText, insertSuggestion } from './utils/office-utils';
-import { analyzeLegalText } from './services/ai';
+import { analyzeLegalText, extractClaimElementsAsJSON } from './services/ai';
+import { verifyCompensationItem, calculateTotalSummary } from './utils/compensation-rules';
+import type { ClaimVerificationResult } from './utils/compensation-rules';
 
 export default function App() {
   const [selectedText, setSelectedText] = useState('');
   const [analysisResult, setAnalysisResult] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState('');
+  
+  const [verificationResults, setVerificationResults] = useState<ClaimVerificationResult[] | null>(null);
+  const [totalSummary, setTotalSummary] = useState<{ userTotal: number; correctTotal: number; hasMismatch: boolean } | null>(null);
 
   const handleReadSelection = async () => {
     try {
@@ -31,12 +37,37 @@ export default function App() {
     try {
       setIsLoading(true);
       setError('');
+      setAnalysisResult('');
       const result = await analyzeLegalText(selectedText);
       setAnalysisResult(result);
     } catch (err: any) {
       setError('分析出错: ' + err.message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleVerifyClaims = async () => {
+    if (!selectedText) {
+      setError('请先获取文档内容。');
+      return;
+    }
+    try {
+      setIsVerifying(true);
+      setError('');
+      setVerificationResults(null);
+      setTotalSummary(null);
+      
+      const elements = await extractClaimElementsAsJSON(selectedText);
+      const results = elements.map(verifyCompensationItem);
+      const summary = calculateTotalSummary(results);
+      
+      setVerificationResults(results);
+      setTotalSummary(summary);
+    } catch (err: any) {
+      setError('金额核对出错: ' + err.message);
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -101,18 +132,30 @@ export default function App() {
             <span className="bg-indigo-100 text-indigo-700 w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold mr-2">2</span>
             AI 智能法务分析
           </h2>
-          <button 
-            onClick={handleAnalyze}
-            disabled={!selectedText || isLoading}
-            className="w-full py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:border-transparent rounded-lg transition-colors font-medium text-sm flex justify-center items-center shadow-sm cursor-pointer"
-          >
-            {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}
-            {isLoading ? '大模型正在分析...' : '开始一键审查'}
-          </button>
+          <div className="flex flex-col space-y-3">
+            <button 
+              onClick={handleAnalyze}
+              disabled={!selectedText || isLoading || isVerifying}
+              className="w-full py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:border-transparent rounded-lg transition-colors font-medium text-sm flex justify-center items-center shadow-sm cursor-pointer"
+            >
+              {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}
+              {isLoading ? '大模型正在分析...' : '一键文本智能审查'}
+            </button>
 
-          {error && <div className="mt-3 text-red-500 text-xs bg-red-50 p-2 rounded border border-red-100">{error}</div>}
+            <button 
+              onClick={handleVerifyClaims}
+              disabled={!selectedText || isLoading || isVerifying}
+              className="w-full py-2.5 bg-teal-600 text-white hover:bg-teal-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:border-transparent rounded-lg transition-colors font-medium text-sm flex justify-center items-center shadow-sm cursor-pointer"
+            >
+              {isVerifying ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Calculator className="w-4 h-4 mr-2" />}
+              {isVerifying ? '正在加载核算引擎...' : '🧮 智能核定索赔金额'}
+            </button>
+          </div>
 
-          {analysisResult && (
+          {error && <div className="mt-3 text-red-500 text-sm bg-red-50 p-2.5 rounded-md border border-red-100">{error}</div>}
+
+          {/* 选项一：法务审查结果 */}
+          {analysisResult && !verificationResults && (
             <div className="mt-5 border-t border-gray-100 pt-4">
               <div className="flex justify-between items-center mb-3">
                 <h3 className="text-[15px] font-bold text-gray-800 flex items-center">
@@ -144,6 +187,60 @@ export default function App() {
                 >
                   {analysisResult}
                 </ReactMarkdown>
+              </div>
+            </div>
+          )}
+
+          {/* 选项二：财务金额核对单 */}
+          {verificationResults && totalSummary && (
+            <div className="mt-5 border-t border-gray-100 pt-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-[15px] font-bold text-gray-800 flex items-center">
+                  <Calculator className="w-4 h-4 mr-1.5 text-teal-600" />
+                  索赔金额核算对账单
+                </h3>
+              </div>
+              
+              <div className="space-y-3">
+                {verificationResults.map((res, idx) => (
+                  <div key={idx} className={`p-3.5 rounded-lg border text-sm transition-all ${res.is_correct ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200 shadow-sm'}`}>
+                    <div className="flex justify-between items-start mb-1.5">
+                      <span className="font-bold text-gray-800">{res.type}</span>
+                      <span className="font-bold font-mono tracking-wide">{res.user_amount} 元</span>
+                    </div>
+                    <div className="flex items-start text-[13px] mt-1.5">
+                      {res.is_correct ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-600 mr-1.5 flex-shrink-0 mt-0.5" />
+                      ) : (
+                        <XCircle className="w-4 h-4 text-red-600 mr-1.5 flex-shrink-0 mt-0.5" />
+                      )}
+                      <span className={`leading-snug ${res.is_correct ? 'text-green-700' : 'text-red-700 font-medium'}`}>
+                        {res.message}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* 汇总统计框 */}
+              <div className={`mt-5 p-4 rounded-xl border-2 ${totalSummary.hasMismatch ? 'bg-orange-50/50 border-orange-200' : 'bg-emerald-50/50 border-emerald-200'}`}>
+                <div className="text-sm font-bold mb-2 flex items-center">
+                  {totalSummary.hasMismatch ? '⚠️' : '✅'} 合计审查结论
+                </div>
+                <div className="flex justify-between text-[13px] mt-3 pb-2 border-b border-gray-200/60">
+                  <span className="text-gray-600">原文主张总额：</span>
+                  <span className={`font-mono text-gray-500 ${totalSummary.hasMismatch ? 'line-through' : ''}`}>
+                    {totalSummary.userTotal} 元
+                  </span>
+                </div>
+                <div className="flex justify-between text-[15px] font-bold mt-2 pt-1">
+                  <span className={totalSummary.hasMismatch ? 'text-orange-700' : 'text-emerald-700'}>
+                    法定适用应得：
+                  </span>
+                  <span className={`font-mono ${totalSummary.hasMismatch ? 'text-orange-700' : 'text-emerald-700'}`}>
+                    {totalSummary.correctTotal} 元
+                  </span>
+                </div>
               </div>
             </div>
           )}
