@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { FileText, Wand2, ArrowDownToLine, Loader2, FileWarning, Calculator, CheckCircle2, XCircle } from 'lucide-react';
+import { FileText, Wand2, ArrowDownToLine, Loader2, FileWarning, Calculator, CheckCircle2, XCircle, PenLine, Zap } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { getSelectedText, insertSuggestion } from './utils/office-utils';
+import { getSelectedText, insertSuggestion, replaceAmountInDocument, replaceAllAmounts } from './utils/office-utils';
 import { analyzeLegalText, extractClaimElementsAsJSON } from './services/ai';
 import { verifyCompensationItem, calculateTotalSummary } from './utils/compensation-rules';
 import type { ClaimVerificationResult } from './utils/compensation-rules';
@@ -15,6 +15,12 @@ export default function App() {
   
   const [verificationResults, setVerificationResults] = useState<ClaimVerificationResult[] | null>(null);
   const [totalSummary, setTotalSummary] = useState<{ userTotal: number; correctTotal: number; hasMismatch: boolean } | null>(null);
+
+  // 修正状态：每项的 index
+  const [fixingIndexes, setFixingIndexes] = useState<Set<number>>(new Set());
+  const [fixedIndexes, setFixedIndexes] = useState<Set<number>>(new Set());
+  const [fixAllStatus, setFixAllStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [fixAllMessage, setFixAllMessage] = useState('');
 
   const handleReadSelection = async () => {
     try {
@@ -77,6 +83,55 @@ export default function App() {
       await insertSuggestion(analysisResult);
     } catch (err: any) {
       setError('插入建议失败: ' + err.message);
+    }
+  };
+
+  // 修正单条错误金额
+  const handleFixOne = async (res: ClaimVerificationResult, idx: number) => {
+    setFixingIndexes(prev => new Set(prev).add(idx));
+    try {
+      const count = await replaceAmountInDocument(res.user_amount, res.theoretical_amount, res.type);
+      if (count === 0) {
+        setError(`未在文档中找到「${res.type}」的金额 ${res.user_amount}，请确认原文格式或手动修正。`);
+      } else {
+        setFixedIndexes(prev => new Set(prev).add(idx));
+        setError('');
+      }
+    } catch (err: any) {
+      setError('写回失败: ' + err.message);
+    } finally {
+      setFixingIndexes(prev => { const s = new Set(prev); s.delete(idx); return s; });
+    }
+  };
+
+  // 批量修正所有错误金额
+  const handleFixAll = async () => {
+    if (!verificationResults) return;
+    const wrongItems = verificationResults
+      .map((r, i) => ({ r, i }))
+      .filter(({ r, i }) => !r.is_correct && !fixedIndexes.has(i));
+    if (wrongItems.length === 0) return;
+
+    setFixAllStatus('loading');
+    setFixAllMessage('');
+    try {
+      const corrections = wrongItems.map(({ r }) => ({
+        oldAmount: r.user_amount,
+        newAmount: r.theoretical_amount,
+        itemType: r.type,
+      }));
+      const count = await replaceAllAmounts(corrections);
+      const newFixed = new Set(fixedIndexes);
+      wrongItems.forEach(({ i }) => newFixed.add(i));
+      setFixedIndexes(newFixed);
+      setFixAllStatus('done');
+      setFixAllMessage(count > 0
+        ? `已修正 ${count} 处金额，新数值已在 Word 文档中标红加粗，请复核。`
+        : '未在文档中找到对应金额，请确认原文选中范围是否包含索赔列表。'
+      );
+    } catch (err: any) {
+      setFixAllStatus('error');
+      setFixAllMessage('批量修正失败: ' + err.message);
     }
   };
 
@@ -202,31 +257,86 @@ export default function App() {
               </div>
               
               <div className="space-y-3">
-                {verificationResults.map((res, idx) => (
-                  <div key={idx} className={`p-3.5 rounded-lg border text-sm transition-all ${res.is_correct ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200 shadow-sm'}`}>
-                    <div className="flex justify-between items-start mb-1.5">
-                      <span className="font-bold text-gray-800">{res.type}</span>
-                      <span className="font-bold font-mono tracking-wide">{res.user_amount} 元</span>
+                {verificationResults.map((res, idx) => {
+                  const isFixed = fixedIndexes.has(idx);
+                  const isFixing = fixingIndexes.has(idx);
+                  return (
+                    <div key={idx} className={`p-3.5 rounded-lg border text-sm transition-all ${
+                      isFixed ? 'bg-gray-50 border-gray-200 opacity-60'
+                        : res.is_correct ? 'bg-green-50 border-green-200'
+                        : 'bg-red-50 border-red-200 shadow-sm'
+                    }`}>
+                      <div className="flex justify-between items-start mb-1.5">
+                        <span className="font-bold text-gray-800">{res.type}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-bold font-mono tracking-wide ${
+                            !res.is_correct && !isFixed ? 'line-through text-red-400' : 'text-gray-700'
+                          }`}>{res.user_amount} 元</span>
+                          {/* 只对错误且未修正的项显示修正按钮 */}
+                          {!res.is_correct && !isFixed && (
+                            <button
+                              onClick={() => handleFixOne(res, idx)}
+                              disabled={isFixing}
+                              title={`将文档中的 ${res.user_amount} 元修正为 ${res.theoretical_amount} 元`}
+                              className="flex items-center gap-1 px-2 py-1 text-[11px] font-semibold bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white rounded transition-colors shadow-sm cursor-pointer"
+                            >
+                              {isFixing ? <Loader2 className="w-3 h-3 animate-spin" /> : <PenLine className="w-3 h-3" />}
+                              {isFixing ? '修正中' : '✏️ 修正'}
+                            </button>
+                          )}
+                          {isFixed && (
+                            <span className="flex items-center gap-1 text-[11px] text-gray-400 font-medium">
+                              <CheckCircle2 className="w-3 h-3" /> 已修正
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-start text-[13px] mt-1.5">
+                        {res.is_correct || isFixed ? (
+                          <CheckCircle2 className={`w-4 h-4 mr-1.5 flex-shrink-0 mt-0.5 ${isFixed ? 'text-gray-400' : 'text-green-600'}`} />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-red-600 mr-1.5 flex-shrink-0 mt-0.5" />
+                        )}
+                        <span className={`leading-snug ${
+                          isFixed ? 'text-gray-400' : res.is_correct ? 'text-green-700' : 'text-red-700 font-medium'
+                        }`}>
+                          {isFixed ? `已修正 → ${res.theoretical_amount} 元（已在 Word 中标红加粗）` : res.message}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-start text-[13px] mt-1.5">
-                      {res.is_correct ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-600 mr-1.5 flex-shrink-0 mt-0.5" />
-                      ) : (
-                        <XCircle className="w-4 h-4 text-red-600 mr-1.5 flex-shrink-0 mt-0.5" />
-                      )}
-                      <span className={`leading-snug ${res.is_correct ? 'text-green-700' : 'text-red-700 font-medium'}`}>
-                        {res.message}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* 汇总统计框 */}
               <div className={`mt-5 p-4 rounded-xl border-2 ${totalSummary.hasMismatch ? 'bg-orange-50/50 border-orange-200' : 'bg-emerald-50/50 border-emerald-200'}`}>
-                <div className="text-sm font-bold mb-2 flex items-center">
-                  {totalSummary.hasMismatch ? '⚠️' : '✅'} 合计审查结论
+                <div className="text-sm font-bold mb-2 flex items-center justify-between">
+                  <span>{totalSummary.hasMismatch ? '⚠️' : '✅'} 合计审查结论</span>
+                  {/* 全部修正按钮：只在有错误&&有待修正项时显示 */}
+                  {totalSummary.hasMismatch && verificationResults.some((r, i) => !r.is_correct && !fixedIndexes.has(i)) && (
+                    <button
+                      onClick={handleFixAll}
+                      disabled={fixAllStatus === 'loading'}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white rounded-lg shadow transition-colors cursor-pointer"
+                    >
+                      {fixAllStatus === 'loading'
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <Zap className="w-3.5 h-3.5" />}
+                      {fixAllStatus === 'loading' ? '修正中...' : '⚡ 全部修正'}
+                    </button>
+                  )}
                 </div>
+
+                {/* 修正结果提示 */}
+                {fixAllMessage && (
+                  <div className={`text-xs p-2 rounded-md mb-2 ${
+                    fixAllStatus === 'done' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : 'bg-red-50 text-red-600 border border-red-200'
+                  }`}>
+                    {fixAllMessage}
+                  </div>
+                )}
+
                 <div className="flex justify-between text-[13px] mt-3 pb-2 border-b border-gray-200/60">
                   <span className="text-gray-600">原文主张总额：</span>
                   <span className={`font-mono text-gray-500 ${totalSummary.hasMismatch ? 'line-through' : ''}`}>
