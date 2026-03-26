@@ -60,6 +60,8 @@ export async function analyzeLegalText(text: string): Promise<string> {
 }
 
 import type { ClaimItemExtracted } from '../utils/compensation-rules';
+import { EVIDENCE_CHECKLIST } from '../utils/evidence-rules';
+import type { EvidenceRawResult } from '../utils/evidence-rules';
 
 /**
  * 结构化抽取交通事故索赔事实要素
@@ -133,5 +135,80 @@ export async function extractClaimElementsAsJSON(text: string): Promise<ClaimIte
 
   } catch (error: any) {
     throw new Error(`解析索赔失败: ${error.message}`);
+  }
+}
+
+/**
+ * 证据清单核查：让 AI 逐一判断诉状中每项标准证据的出具状态
+ */
+export async function extractEvidenceFromText(text: string): Promise<EvidenceRawResult[]> {
+  if (!text || text.trim() === '') {
+    throw new Error('未选中任何文字。');
+  }
+  if (MODEL_EP_ID.includes('请在此处填入')) {
+    throw new Error('请先填入模型接入点 ID');
+  }
+
+  // 把证据清单序列化给模型，确保 id 完全一致
+  const checklistSummary = EVIDENCE_CHECKLIST.map(
+    (e, i) => `${i + 1}. id="${e.id}" 名称="${e.name}" 用途="${e.purpose}"`
+  ).join('\n');
+
+  const systemPrompt = `你是一个中国民事诉讼证据核查助手，精通交通事故人身损害案件的举证规范。
+
+你将收到一份起诉状或诉讼材料文本。请逐一检查以下 ${EVIDENCE_CHECKLIST.length} 项标准证据在文本中的出具状态，并严格按照 JSON 格式输出结果。
+
+【标准证据清单】
+${checklistSummary}
+
+【状态定义】
+- "present"：文本中明确提到或引用了该证据（如"附事故认定书"、"凭医疗发票"等）
+- "weak"：隐约提及但内容不完整或仅泛泛说"见附件"，无具体说明
+- "missing"：未找到任何与该证据相关的表述
+
+【输出格式】
+严格输出纯 JSON 数组，不加 Markdown 代码块，不加任何前言后语：
+[
+  { "id": "accident_report", "status": "present", "note": "原文：见交警部门出具的道路交通事故认定书" },
+  { "id": "medical_invoice", "status": "weak", "note": "原文仅写'见发票'，未说明金额或张数" },
+  { "id": "disability_assessment", "status": "missing", "note": "文本中未提及伤残鉴定" }
+]
+必须输出全部 ${EVIDENCE_CHECKLIST.length} 项，每项都要有 id、status、note 三个字段。`;
+
+  try {
+    const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: MODEL_EP_ID,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `请核查以下诉状材料中的证据出具情况：\n\n${text}` },
+        ],
+        temperature: 0.0,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`API: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    let content = data.choices[0].message.content.trim();
+
+    // 剥离可能的 markdown 代码块
+    content = content
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/\s*```$/, '')
+      .trim();
+
+    return JSON.parse(content) as EvidenceRawResult[];
+  } catch (error: any) {
+    throw new Error(`证据核查失败: ${error.message}`);
   }
 }

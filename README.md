@@ -1,73 +1,182 @@
-# React + TypeScript + Vite
+# 诉状智能助手 — Word 插件
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> 一款面向中国民事诉讼场景的 Microsoft Word 侧边栏 AI 插件，专为交通事故人身损害赔偿案件设计，提供文本审查、索赔金额核算与证据清单核查三大核心功能。
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 功能概览
 
-## React Compiler
+### 1. 🧠 AI 文本智能审查
+- 将 Word 文档中选中的诉状片段发送至大模型（火山引擎 Ark API）进行深度法律分析。
+- 重点审查：诉讼请求完整性、事实逻辑、时间线合理性、法律条款引用。
+- 结果以结构化 Markdown 形式展示，支持一键将建议批注插入 Word 文档（以红色加粗显示）。
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 2. 🧮 智能核定索赔金额
+- AI 自动从诉状文本中结构化提取各赔偿科目（残疾赔偿金、医疗费、护理费、误工费等）及关键参数。
+- 内置湖北省 2026 年法定赔偿标准（城镇居民人均收入、护工费用等），对每项金额进行规则引擎校验。
+- 生成逐项对账单，标注正确/错误，并展示理论应赔金额与原告主张金额的差额。
+- 支持**单条修正**或**一键批量修正**：自动在 Word 文档中搜索并替换错误金额，以红色加粗标记，便于律师复核。
 
-## Expanding the ESLint configuration
+### 3. 📋 证据清单核查
+- 内置交通事故人身损害标准证据清单（共 14 项），含必须、条件性、建议三级优先级分类。
+- AI 逐项判断诉状中各证据的出具状态：✅ 已具备 / ⚠️ 偏弱 / ❌ 缺失。
+- 对缺失证据提供详细的取得建议与操作指引。
+- 结果以彩色卡片列表展示，并附统计进度条。
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+---
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 技术栈
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+| 层次 | 技术 |
+|------|------|
+| 框架 | React 19 + TypeScript |
+| 构建 | Vite 8 |
+| 样式 | Tailwind CSS v4 |
+| 图标 | Lucide React |
+| Markdown 渲染 | react-markdown |
+| AI 接入 | 火山引擎 Ark API（豆包 Pro / DeepSeek 等推理接入点） |
+| Office 集成 | Office.js + Word.js API（`@types/office-js`） |
+| 本地 HTTPS | `vite-plugin-mkcert` |
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+---
+
+## 项目结构
+
+```
+word-assist/
+├── manifest.xml              # Office 插件清单（插件名称、权限、入口 URL）
+├── index.html                # 插件入口页
+├── src/
+│   ├── App.tsx               # 主界面：三大功能模块的交互逻辑与 UI
+│   ├── main.tsx              # 应用挂载入口
+│   ├── services/
+│   │   └── ai.ts             # 火山引擎大模型 API 调用（3 个函数）
+│   └── utils/
+│       ├── office-utils.ts   # Office/Word.js 封装（读取选区、插入文本、替换金额）
+│       ├── compensation-rules.ts  # 赔偿金额规则引擎 + 法定标准
+│       └── evidence-rules.ts     # 证据清单定义 + 核查结果合并逻辑
+├── public/
+│   └── assets/               # 插件图标（16x16、32x32、80x80）
+├── package.json
+├── vite.config.ts
+└── tsconfig.app.json
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 快速开始
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 前置要求
+
+- **Node.js** ≥ 18
+- **Microsoft Word** 桌面版（Windows 或 macOS）
+- **火山引擎** Ark API Key 及推理接入点 ID
+
+### 1. 安装依赖
+
+```bash
+npm install
 ```
+
+### 2. 配置 AI 接入点
+
+打开 `src/services/ai.ts`，填入你的火山引擎凭证：
+
+```ts
+const API_KEY = '你的火山引擎 API Key';
+const MODEL_EP_ID = 'ep-xxxxxxxx';  // 推理接入点 ID，格式类似 ep-2024...
+```
+
+> **提示**：登录 [火山方舟控制台](https://ark.cn-beijing.volces.com) → 选择模型（如豆包·Pro·32k 或 DeepSeek-V3）→ 创建推理接入点，复制接入点 ID 填入上方。
+
+### 3. 启动本地开发服务器
+
+```bash
+npm run dev
+```
+
+服务将在 `https://localhost:3000` 启动（需要 HTTPS，由 `vite-plugin-mkcert` 自动颁发本地证书）。
+
+### 4. 在 Word 中加载插件
+
+1. 打开 Microsoft Word。
+2. 进入**插入 → 加载项 → 我的加载项 → 上传我的加载项**。
+3. 选择本项目根目录下的 `manifest.xml` 文件。
+4. 加载完成后，在 **开始** 选项卡的 **AI 工具** 组中点击 **启动法律助手** 即可打开侧边栏。
+
+---
+
+## 使用流程
+
+```
+在 Word 中选中需要分析的诉状段落
+        ↓
+点击「提取Word选中段落」
+        ↓
+选择以下功能之一：
+
+  [一键文本智能审查]      → AI 法务建议，可插入批注
+  [智能核定索赔金额]      → 逐项对账 + 一键修正错误金额
+  [证据清单核查]         → 14项证据状态报告 + 取证建议
+```
+
+---
+
+## 赔偿计算规则说明
+
+内置规则基于以下标准（可在 `src/utils/compensation-rules.ts` 中自行调整）：
+
+| 标准项 | 数值 | 适用场景 |
+|--------|------|----------|
+| 湖北省城镇居民人均可支配收入（2026） | 49,164 元/年 | 残疾赔偿金、死亡赔偿金 |
+| 湖北省居民人均消费性支出（2026） | 32,473 元/年 | 被扶养人生活费 |
+| 护工行业平均薪酬（2026） | 52,532 元/年 | 护理费基准 |
+
+**残疾赔偿金计算公式**：`年收入 × (11 - 伤残等级) × 10% × 年限`
+
+---
+
+## 证据清单说明
+
+内置 14 项标准证据，分三级优先级：
+
+| 级别 | 标识 | 包含项目（示例） |
+|------|------|----------------|
+| **必须** | 红色徽章 | 事故认定书、医疗发票、诊断证明、误工证明、被告资质证明、原告身份证明 |
+| **条件性** | 橙色徽章 | 伤残鉴定意见书、被扶养人证明、车辆损失评估 |
+| **建议** | 蓝色徽章 | 营养费医嘱、住院伙食补助说明、交通费票据、精神损害依据 |
+
+---
+
+## 构建与部署
+
+```bash
+# 生产构建
+npm run build
+
+# 预览构建产物
+npm run preview
+```
+
+生产部署时，将 `manifest.xml` 中所有 `https://localhost:3000` 替换为实际的生产域名（需要 HTTPS）。
+
+---
+
+## 注意事项
+
+- **API Key 安全**：当前 API Key 硬编码在前端代码中，仅适用于本地开发。生产环境建议通过后端代理转发请求，避免密钥泄露。
+- **法定标准时效**：内置赔偿标准为假定的 2026 年湖北省数据，实际使用时请根据最新发布标准及目标省份进行更新。
+- **AI 输出免责**：AI 生成的审查建议仅供参考，不构成正式法律意见，最终诉状修改应由执业律师复核确认。
+- **浏览器模式**：在非 Word 环境中直接打开链接时，插件会显示提示警告，Office API 功能不可用，但 AI 文本分析功能仍可测试。
+
+---
+
+## 开发者信息
+
+- **开发者**：Guangge Developer
+- **插件默认语言**：简体中文（zh-CN）
+- **Office 权限级别**：ReadWriteDocument
+
+---
+
+*本项目为 Microsoft Word 任务栏插件（Task Pane Add-in），基于 Office.js API 与 React 技术栈构建。*
