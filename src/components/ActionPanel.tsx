@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { Wand2, Calculator, ClipboardList, Loader2 } from 'lucide-react';
+import { Wand2, Calculator, ClipboardList, Loader2, ReceiptText } from 'lucide-react';
 
 interface Props {
   hasText: boolean;
@@ -10,6 +10,7 @@ interface Props {
   onAnalyze: () => void;
   onVerifyClaims: () => void;
   onCheckEvidence: () => void;
+  onOpenCalculator: () => void;
   error: string;
   children?: ReactNode;
 }
@@ -23,6 +24,7 @@ export default function ActionPanel({
   onAnalyze,
   onVerifyClaims,
   onCheckEvidence,
+  onOpenCalculator,
   error,
   children,
 }: Props) {
@@ -68,6 +70,15 @@ export default function ActionPanel({
             <ClipboardList className="w-4 h-4 mr-2" />
           )}
           {isCheckingEvidence ? 'AI 核查证据中...' : '📋 证据清单核查'}
+        </button>
+
+        {/* 赔偿计算器 — 始终可点击，不依赖选中文字 */}
+        <button
+          onClick={onOpenCalculator}
+          className="w-full py-2.5 bg-amber-500 text-white hover:bg-amber-600 rounded-lg transition-colors font-medium text-sm flex justify-center items-center shadow-sm cursor-pointer"
+        >
+          <ReceiptText className="w-4 h-4 mr-2" />
+          🧮 赔偿金额计算器
         </button>
       </div>
 
