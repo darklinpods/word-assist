@@ -1,4 +1,5 @@
 import { TEMPLATE_BASE64 } from '../assets/template';
+import type { PartyExtraction } from '../types/parties';
 
 /**
  * 将打包的起诉状模板插入当前 Word 文档开头
@@ -10,6 +11,41 @@ export async function insertTemplate(): Promise<void> {
   return Word.run(async (context) => {
     context.document.body.insertFileFromBase64(TEMPLATE_BASE64, Word.InsertLocation.start);
     await context.sync();
+  });
+}
+
+/**
+ * 读取 Word 文档正文文本
+ */
+export async function getDocumentText(): Promise<string> {
+  if (typeof Word === 'undefined') {
+    throw new Error('Word.js API 未加载，请在 Microsoft Word 侧边栏中运行此插件。');
+  }
+  return Word.run(async (context) => {
+    const body = context.document.body;
+    body.load('text');
+    await context.sync();
+    return body.text || '';
+  });
+}
+
+/**
+ * 在文档中定位并选中指定文本（首次匹配）
+ */
+export async function locateTextInDocument(text: string): Promise<boolean> {
+  if (typeof Word === 'undefined') {
+    throw new Error('Word.js API 未加载，请在 Microsoft Word 侧边栏中运行此插件。');
+  }
+  return Word.run(async (context) => {
+    const body = context.document.body;
+    const results = body.search(text, { matchCase: false, matchWholeWord: false });
+    results.load('items');
+    await context.sync();
+    if (results.items.length === 0) return false;
+    const range = results.items[0];
+    range.select();
+    await context.sync();
+    return true;
   });
 }
 
@@ -131,6 +167,171 @@ export async function replaceAllAmounts(
     }
 
     return totalReplaced;
+  });
+}
+
+/**
+ * 将当事人信息写入要素式诉状模板中的“当事人信息”表格（按原文，不改写）
+ */
+export async function insertPartiesIntoTemplate(parties: PartyExtraction): Promise<void> {
+  if (typeof Word === 'undefined') {
+    throw new Error('Word.js API 未加载，请在 Microsoft Word 侧边栏中运行此插件。');
+  }
+
+  return Word.run(async (context) => {
+    const body = context.document.body;
+    let targetTable: Word.Table | null = null;
+
+    // 优先：通过“当事人信息”标题定位其所在表格
+    const ranges = body.search('当事人信息', { matchCase: false, matchWholeWord: false });
+    ranges.load('items');
+    await context.sync();
+    if (ranges.items.length > 0) {
+      const tableOrNull = ranges.items[0].parentTableOrNullObject;
+      tableOrNull.load('isNullObject');
+      await context.sync();
+      if (!tableOrNull.isNullObject) {
+        targetTable = tableOrNull;
+      }
+    }
+
+    // 兜底：遍历表格值查找
+    if (!targetTable) {
+      const tables = body.tables;
+      tables.load('items');
+      await context.sync();
+
+      if (tables.items.length === 0) {
+        throw new Error('未找到任何表格，请先插入要素式起诉状模板。');
+      }
+
+      for (const table of tables.items) {
+        table.load('values');
+      }
+      await context.sync();
+
+      targetTable = tables.items.find((table) =>
+        table.values.some((row) => row.some((cell) => typeof cell === 'string' && cell.includes('当事人信息')))
+      ) || null;
+    }
+
+    if (!targetTable) {
+      throw new Error('未找到“当事人信息”表格，请确认已插入要素式起诉状模板。');
+    }
+
+    const rows = targetTable.rows;
+    rows.load('items');
+    await context.sync();
+
+    for (const row of rows.items) {
+      row.load('values');
+      row.cells.load('items');
+    }
+    await context.sync();
+
+    const findRowByLabel = (label: string) =>
+      rows.items.find((row) => row.values.some((r) => r.some((cell) => typeof cell === 'string' && cell.includes(label))));
+
+    const plaintiffRow = findRowByLabel('原告（自然人）');
+    const defendantNaturalRow = findRowByLabel('被告（自然人）');
+    const insuranceRow = findRowByLabel('被告（保险公司）');
+
+    if (!plaintiffRow || !defendantNaturalRow || !insuranceRow) {
+      throw new Error('模板中的当事人信息行不完整，请确认模板未被修改。');
+    }
+
+    const writeRow = (row: Word.TableRow, label: string, content: string) => {
+      const cells = row.cells.items;
+      if (!cells || cells.length < 2) {
+        throw new Error('当事人信息行结构异常，无法写入内容。');
+      }
+      const leftCell = cells[0];
+      const rightCell = cells[1];
+      leftCell.body.clear();
+      leftCell.body.insertText(label, Word.InsertLocation.start);
+      rightCell.body.clear();
+      rightCell.body.insertText(content || '', Word.InsertLocation.start);
+    };
+
+    const applyRowsFromBase = async (
+      baseRow: Word.TableRow,
+      label: string,
+      contents: string[]
+    ): Promise<Word.TableRow> => {
+      baseRow.cells.load('items');
+      await context.sync();
+      if (contents.length === 0) {
+        writeRow(baseRow, label, '');
+        return baseRow;
+      }
+      writeRow(baseRow, label, contents[0]);
+      let lastRow = baseRow;
+      if (contents.length > 1) {
+        const inserted = baseRow.insertRows(Word.InsertLocation.after, contents.length - 1);
+        inserted.load('items');
+        await context.sync();
+        for (const row of inserted.items) {
+          row.cells.load('items');
+        }
+        await context.sync();
+        inserted.items.forEach((row, idx) => writeRow(row, label, contents[idx + 1]));
+        lastRow = inserted.items[inserted.items.length - 1];
+      }
+      return lastRow;
+    };
+
+    const insertRowsAfter = async (
+      anchorRow: Word.TableRow,
+      label: string,
+      contents: string[]
+    ): Promise<Word.TableRow> => {
+      if (contents.length === 0) return anchorRow;
+      const inserted = anchorRow.insertRows(Word.InsertLocation.after, contents.length);
+      inserted.load('items');
+      await context.sync();
+      for (const row of inserted.items) {
+        row.cells.load('items');
+      }
+      await context.sync();
+      inserted.items.forEach((row, idx) => writeRow(row, label, contents[idx]));
+      return inserted.items[inserted.items.length - 1];
+    };
+
+    await applyRowsFromBase(plaintiffRow, '原告（自然人）', parties.plaintiffsNatural);
+
+    const hasDefNatural = parties.defendantsNatural.length > 0;
+    const hasDefLegal = parties.defendantsLegal.length > 0;
+    let lastDefendantRow: Word.TableRow;
+
+    if (hasDefNatural) {
+      lastDefendantRow = await applyRowsFromBase(defendantNaturalRow, '被告（自然人）', parties.defendantsNatural);
+    } else if (hasDefLegal) {
+      lastDefendantRow = await applyRowsFromBase(defendantNaturalRow, '被告（法人）', parties.defendantsLegal);
+    } else {
+      lastDefendantRow = await applyRowsFromBase(defendantNaturalRow, '被告（自然人）', []);
+    }
+
+    if (hasDefNatural && hasDefLegal) {
+      lastDefendantRow = await insertRowsAfter(lastDefendantRow, '被告（法人）', parties.defendantsLegal);
+    }
+
+    const hasInsurance = parties.defendantsInsurance.length > 0;
+    const hasThird = parties.thirdPartyLegal.length > 0;
+    let lastInsuranceRow: Word.TableRow;
+
+    if (hasInsurance) {
+      lastInsuranceRow = await applyRowsFromBase(insuranceRow, '被告（保险公司）', parties.defendantsInsurance);
+    } else if (hasThird) {
+      lastInsuranceRow = await applyRowsFromBase(insuranceRow, '第三人（法人）', parties.thirdPartyLegal);
+    } else {
+      lastInsuranceRow = await applyRowsFromBase(insuranceRow, '被告（保险公司）', []);
+    }
+
+    if (hasInsurance && hasThird) {
+      lastInsuranceRow = await insertRowsAfter(lastInsuranceRow, '第三人（法人）', parties.thirdPartyLegal);
+    }
+
+    await context.sync();
   });
 }
 

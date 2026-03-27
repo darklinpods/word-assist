@@ -62,6 +62,7 @@ export async function analyzeLegalText(text: string): Promise<string> {
 import type { ClaimItemExtracted } from '../utils/compensation-rules';
 import { EVIDENCE_CHECKLIST } from '../utils/evidence-rules';
 import type { EvidenceRawResult } from '../utils/evidence-rules';
+import type { PartyExtraction } from '../types/parties';
 
 /**
  * 结构化抽取交通事故索赔事实要素
@@ -210,5 +211,104 @@ ${checklistSummary}
     return JSON.parse(content) as EvidenceRawResult[];
   } catch (error: any) {
     throw new Error(`证据核查失败: ${error.message}`);
+  }
+}
+
+/**
+ * 抽取当事人信息（严格按原文，不改写）
+ */
+export async function extractPartiesFromText(text: string): Promise<PartyExtraction> {
+  if (!text || text.trim() === '') {
+    throw new Error('未选中任何文字。');
+  }
+  if (MODEL_EP_ID.includes('请在此处填入')) {
+    throw new Error('请先填入模型接入点 ID');
+  }
+
+  const systemPrompt = `你是一个当事人信息格式化抽取器。
+只从传统式起诉状中抽取当事人信息，并按“要素式诉状”的字段格式输出。
+禁止改写事实内容；只能做“格式化呈现”。任何未出现的信息不得推断或补充。
+
+角色范围固定为以下五类（没有就留空数组）：
+1. 原告（自然人）
+2. 被告（自然人）
+3. 被告（法人）
+4. 被告（保险公司）
+5. 第三人（法人）——只在文本出现“道路救助基金/紫金保险”等第三人描述时提取
+
+重要规则：
+- 原告/被告数量不固定，必须逐个输出为数组项。
+- 被告只区分自然人或法人；自然人的字段结构与原告自然人一致。
+- 不考虑：代理人、原告法人。
+- 每个数组项必须输出为“要素式诉状”格式字符串（多行），只做格式化，不得改写原意。
+- 若某字段在原文中找不到，保留字段名，冒号后留空（不要写“无”）。
+
+【自然人格式】
+姓名：xxx
+性别：xxx；民族：xxx
+出生日期：xxxx年xx月xx日
+户籍/住址：xxx
+公民身份号码：xxxxxxxx
+联系电话：xxxxxxx
+
+【法人/保险公司/第三人法人格式】
+名称：xxx
+住所地：xxx
+统一社会信用代码：xxxxxxxx
+法人类型：xxx
+联系人：xxx
+法定代表人：xxx
+
+输出格式必须是严格 JSON（不要 Markdown），字段固定为：
+{
+  "plaintiffsNatural": ["..."],
+  "defendantsNatural": ["..."],
+  "defendantsLegal": ["..."],
+  "defendantsInsurance": ["..."],
+  "thirdPartyLegal": ["..."]
+}
+`;
+
+  try {
+    const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: MODEL_EP_ID,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: text },
+        ],
+        temperature: 0.0,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`API: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    let content = data.choices[0].message.content.trim();
+
+    content = content
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/\s*```$/, '')
+      .trim();
+
+    const parsed = JSON.parse(content) as PartyExtraction;
+    return {
+      plaintiffsNatural: parsed.plaintiffsNatural || [],
+      defendantsNatural: parsed.defendantsNatural || [],
+      defendantsLegal: parsed.defendantsLegal || [],
+      defendantsInsurance: parsed.defendantsInsurance || [],
+      thirdPartyLegal: parsed.thirdPartyLegal || [],
+    };
+  } catch (error: any) {
+    throw new Error(`当事人信息抽取失败: ${error.message}`);
   }
 }

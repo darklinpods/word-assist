@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { Wand2, Calculator, ClipboardList, Loader2, ReceiptText, FileText } from 'lucide-react';
+import { Wand2, Calculator, ClipboardList, Loader2, ReceiptText, FileText, IdCard, Users } from 'lucide-react';
 
 interface Props {
   hasText: boolean;
@@ -7,9 +7,13 @@ interface Props {
   isAnalyzing: boolean;
   isVerifying: boolean;
   isCheckingEvidence: boolean;
+  isCheckingIdCard: boolean;
+  isExtractingParties: boolean;
   onAnalyze: () => void;
   onVerifyClaims: () => void;
   onCheckEvidence: () => void;
+  onCheckIdCard: () => void;
+  onExtractParties: () => void;
   onOpenCalculator: () => void;
   onInsertTemplate: () => void;
   error: string;
@@ -26,8 +30,8 @@ const Tip = ({ label }: { label: string }) => (
 );
 
 export default function ActionPanel({
-  hasText, isBusy, isAnalyzing, isVerifying, isCheckingEvidence,
-  onAnalyze, onVerifyClaims, onCheckEvidence, onOpenCalculator, onInsertTemplate,
+  hasText, isBusy, isAnalyzing, isVerifying, isCheckingEvidence, isCheckingIdCard, isExtractingParties,
+  onAnalyze, onVerifyClaims, onCheckEvidence, onCheckIdCard, onExtractParties, onOpenCalculator, onInsertTemplate,
   error, children,
 }: Props) {
   return (
@@ -50,6 +54,18 @@ export default function ActionPanel({
           className={btn(isCheckingEvidence, 'text-violet-600 bg-violet-50')}>
           <Tip label="证据清单核查" />
           {isCheckingEvidence ? <Loader2 className="w-5 h-5 animate-spin" /> : <ClipboardList className="w-5 h-5" />}
+        </button>
+
+        <button onClick={onCheckIdCard} disabled={isCheckingIdCard || isBusy}
+          className={btn(isCheckingIdCard, 'text-blue-600 bg-blue-50')}>
+          <Tip label="身份证号核查" />
+          {isCheckingIdCard ? <Loader2 className="w-5 h-5 animate-spin" /> : <IdCard className="w-5 h-5" />}
+        </button>
+
+        <button onClick={onExtractParties} disabled={isExtractingParties || isBusy}
+          className={btn(isExtractingParties, 'text-sky-600 bg-sky-50')}>
+          <Tip label="当事人信息提取" />
+          {isExtractingParties ? <Loader2 className="w-5 h-5 animate-spin" /> : <Users className="w-5 h-5" />}
         </button>
 
         <div className="w-px h-5 bg-gray-200 mx-1" />

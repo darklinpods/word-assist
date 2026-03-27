@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { FileText, ArrowLeft } from 'lucide-react';
 
-import { insertTemplate } from './utils/office-utils';
+import { insertPartiesIntoTemplate, insertTemplate } from './utils/office-utils';
 import { useDocumentReader } from './hooks/useDocumentReader';
 import { useAnalysis } from './hooks/useAnalysis';
 import { useClaimsVerification } from './hooks/useClaimsVerification';
 import { useEvidenceCheck } from './hooks/useEvidenceCheck';
 import { useCompensationCalculator } from './hooks/useCompensationCalculator';
+import { useIdCardVerification } from './hooks/useIdCardVerification';
+import { usePartyExtraction } from './hooks/usePartyExtraction';
 
 import Header from './components/Header';
 import OfficeWarning from './components/OfficeWarning';
@@ -14,6 +16,8 @@ import ActionPanel from './components/ActionPanel';
 import AnalysisResult from './components/AnalysisResult';
 import ClaimsResult from './components/ClaimsResult';
 import EvidenceResult from './components/EvidenceResult';
+import IdCardResult from './components/IdCardResult';
+import PartiesResult from './components/PartiesResult';
 import CompensationForm from './components/CompensationForm';
 import CompensationResult from './components/CompensationResult';
 
@@ -21,31 +25,78 @@ type View = 'main' | 'calculator';
 
 export default function App() {
   const [view, setView] = useState<View>('main');
+  const [partyInsertError, setPartyInsertError] = useState('');
 
   const reader = useDocumentReader();
   const analysis = useAnalysis();
   const claims = useClaimsVerification();
   const evidence = useEvidenceCheck();
+  const idCard = useIdCardVerification();
+  const parties = usePartyExtraction();
   const calc = useCompensationCalculator();
 
-  const combinedError = reader.error || analysis.error || claims.error || evidence.error;
-  const isBusy = analysis.isLoading || claims.isVerifying || evidence.isChecking;
+  const combinedError =
+    reader.error ||
+    analysis.error ||
+    claims.error ||
+    evidence.error ||
+    idCard.error ||
+    parties.error ||
+    partyInsertError;
+  const isBusy =
+    analysis.isLoading ||
+    claims.isVerifying ||
+    evidence.isChecking ||
+    idCard.isChecking ||
+    parties.isExtracting;
 
   // 顶部按钮：只切换面板，首次切入且无结果时自动触发
   const handleAnalyze = () => {
-    if (!analysis.analysisResult && !analysis.isLoading) { claims.reset(); evidence.reset(); analysis.analyze(reader.selectedText); }
+    if (!analysis.analysisResult && !analysis.isLoading) {
+      claims.reset(); evidence.reset(); idCard.reset(); parties.reset(); setPartyInsertError('');
+      analysis.analyze(reader.selectedText);
+    }
   };
   const handleVerifyClaims = () => {
-    if (!claims.verificationResults && !claims.isVerifying) { analysis.reset(); evidence.reset(); claims.verify(reader.selectedText); }
+    if (!claims.verificationResults && !claims.isVerifying) {
+      analysis.reset(); evidence.reset(); idCard.reset(); parties.reset(); setPartyInsertError('');
+      claims.verify(reader.selectedText);
+    }
   };
   const handleCheckEvidence = () => {
-    if (!evidence.evidenceResults && !evidence.isChecking) { analysis.reset(); claims.reset(); evidence.check(reader.selectedText); }
+    if (!evidence.evidenceResults && !evidence.isChecking) {
+      analysis.reset(); claims.reset(); idCard.reset(); parties.reset(); setPartyInsertError('');
+      evidence.check(reader.selectedText);
+    }
+  };
+  const handleCheckIdCard = () => {
+    if (!idCard.isChecking) {
+      analysis.reset(); claims.reset(); evidence.reset(); parties.reset(); setPartyInsertError('');
+      idCard.checkDocument();
+    }
+  };
+  const handleExtractParties = () => {
+    if (!parties.isExtracting) {
+      analysis.reset(); claims.reset(); evidence.reset(); idCard.reset(); setPartyInsertError('');
+      parties.extract();
+    }
   };
 
   // 结果区内"重新执行"按钮
   const handleRerunAnalyze = () => { analysis.analyze(reader.selectedText); };
   const handleRerunClaims = () => { claims.verify(reader.selectedText); };
   const handleRerunEvidence = () => { evidence.check(reader.selectedText); };
+  const handleRerunIdCard = () => { idCard.checkDocument(); };
+  const handleRerunParties = () => { parties.extract(); };
+  const handleInsertParties = async () => {
+    if (!parties.result) return;
+    try {
+      setPartyInsertError('');
+      await insertPartiesIntoTemplate(parties.result);
+    } catch (err: any) {
+      setPartyInsertError('写入要素式诉状失败: ' + err.message);
+    }
+  };
 
   return (
     <div className="h-screen flex flex-col font-sans bg-gray-50">
@@ -95,9 +146,12 @@ export default function App() {
           <ActionPanel
             hasText={!!reader.selectedText} isBusy={isBusy}
             isAnalyzing={analysis.isLoading} isVerifying={claims.isVerifying}
-            isCheckingEvidence={evidence.isChecking}
+            isCheckingEvidence={evidence.isChecking} isCheckingIdCard={idCard.isChecking}
+            isExtractingParties={parties.isExtracting}
             onAnalyze={handleAnalyze} onVerifyClaims={handleVerifyClaims}
-            onCheckEvidence={handleCheckEvidence} onOpenCalculator={() => setView('calculator')}
+            onCheckEvidence={handleCheckEvidence} onCheckIdCard={handleCheckIdCard}
+            onExtractParties={handleExtractParties}
+            onOpenCalculator={() => setView('calculator')}
             onInsertTemplate={insertTemplate} error={combinedError}
           >
             <AnalysisResult result={analysis.analysisResult} onInsert={analysis.insertToDocument} onRerun={handleRerunAnalyze} />
@@ -110,6 +164,20 @@ export default function App() {
               />
             )}
             {evidence.evidenceResults && <EvidenceResult results={evidence.evidenceResults} onRerun={handleRerunEvidence} />}
+            {idCard.results && (
+              <IdCardResult
+                results={idCard.results}
+                onRerun={handleRerunIdCard}
+                onLocate={idCard.locateInDocument}
+              />
+            )}
+            {parties.result && (
+              <PartiesResult
+                result={parties.result}
+                onInsert={handleInsertParties}
+                onRerun={handleRerunParties}
+              />
+            )}
           </ActionPanel>
         </div>
       )}
