@@ -24,6 +24,17 @@ const renderSection = (title: string, items: string[]) => (
   </div>
 );
 
+const renderText = (title: string, text: string) => (
+  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+    <div className="text-xs font-semibold text-gray-700 mb-2">{title}</div>
+    {text ? (
+      <div className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed bg-white border border-gray-200 rounded-md p-2">{text}</div>
+    ) : (
+      <div className="text-xs text-gray-400">无</div>
+    )}
+  </div>
+);
+
 export default function PartiesResult({ result, onInsert, onRerun }: Props) {
   const total =
     result.plaintiffsNatural.length +
@@ -37,7 +48,7 @@ export default function PartiesResult({ result, onInsert, onRerun }: Props) {
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-sm font-semibold text-gray-800 flex items-center">
           <Users className="w-4 h-4 mr-2 text-blue-600" />
-          当事人信息提取
+          诉状信息提取
         </h2>
         <div className="flex items-center gap-2">
           <button
@@ -63,6 +74,12 @@ export default function PartiesResult({ result, onInsert, onRerun }: Props) {
         {renderSection('被告（法人）', result.defendantsLegal)}
         {renderSection('被告（保险公司）', result.defendantsInsurance)}
         {renderSection('第三人（法人）', result.thirdPartyLegal)}
+        {renderText('诉讼请求', result.claimsText)}
+        {renderText('交通事故发生情况', result.accidentFacts)}
+        {renderText('交通事故责任认定', result.liabilityDetermination)}
+        {renderText('机动车投保情况', result.insuranceInfo)}
+        {renderSection('其他情况及法律依据', result.otherFacts)}
+        {renderText('索赔清单', result.claimsList)}
       </div>
     </div>
   );

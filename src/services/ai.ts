@@ -225,23 +225,21 @@ export async function extractPartiesFromText(text: string): Promise<PartyExtract
     throw new Error('请先填入模型接入点 ID');
   }
 
-  const systemPrompt = `你是一个当事人信息格式化抽取器。
-只从传统式起诉状中抽取当事人信息，并按“要素式诉状”的字段格式输出。
-禁止改写事实内容；只能做“格式化呈现”。任何未出现的信息不得推断或补充。
+  const systemPrompt = `你是一个诉状信息格式化抽取器。
+只从传统式起诉状中抽取信息，禁止改写任何内容，任何未出现的信息不得推断或补充。
 
+【一、当事人】
 角色范围固定为以下五类（没有就留空数组）：
 1. 原告（自然人）
 2. 被告（自然人）
 3. 被告（法人）
 4. 被告（保险公司）
-5. 第三人（法人）——只在文本出现“道路救助基金/紫金保险”等第三人描述时提取
+5. 第三人（法人）
 
-重要规则：
+规则：
 - 原告/被告数量不固定，必须逐个输出为数组项。
-- 被告只区分自然人或法人；自然人的字段结构与原告自然人一致。
-- 不考虑：代理人、原告法人。
-- 每个数组项必须输出为“要素式诉状”格式字符串（多行），只做格式化，不得改写原意。
-- 若某字段在原文中找不到，保留字段名，冒号后留空（不要写“无”）。
+- 每个数组项输出为多行格式字符串，只做格式化，不得改写原意。
+- 若某字段在原文中找不到，保留字段名，冒号后留空。
 
 【自然人格式】
 姓名：xxx
@@ -259,13 +257,32 @@ export async function extractPartiesFromText(text: string): Promise<PartyExtract
 联系人：xxx
 法定代表人：xxx
 
+【二、诉讼请求】
+完整复制原文"诉讼请求"部分的所有内容，一字不动照抄，输出到 claimsText 字段。
+
+【三、事实与理由】
+从"事实与理由"部分提取以下四个子项：
+- accidentFacts：交通事故发生情况（通常第一段），原文照抄。
+- liabilityDetermination：交通事故责任认定（通常第二段），原文照抄。
+- insuranceInfo：机动车投保情况（单独的一段），原文照抄。
+- otherFacts：除上述三段之外，事实与理由中其余所有独立段落，每段作为数组中的一个元素，原文照抄，不合并。
+
+【四、索赔清单】
+找到"索赔清单"节（单独的一节），全文照抄，一字不改，输出到 claimsList 字段。
+
 输出格式必须是严格 JSON（不要 Markdown），字段固定为：
 {
   "plaintiffsNatural": ["..."],
   "defendantsNatural": ["..."],
   "defendantsLegal": ["..."],
   "defendantsInsurance": ["..."],
-  "thirdPartyLegal": ["..."]
+  "thirdPartyLegal": ["..."],
+  "claimsText": "...",
+  "accidentFacts": "...",
+  "liabilityDetermination": "...",
+  "insuranceInfo": "...",
+  "otherFacts": ["...", "..."],
+  "claimsList": "..."
 }
 `;
 
@@ -307,6 +324,12 @@ export async function extractPartiesFromText(text: string): Promise<PartyExtract
       defendantsLegal: parsed.defendantsLegal || [],
       defendantsInsurance: parsed.defendantsInsurance || [],
       thirdPartyLegal: parsed.thirdPartyLegal || [],
+      claimsText: parsed.claimsText || '',
+      accidentFacts: parsed.accidentFacts || '',
+      liabilityDetermination: parsed.liabilityDetermination || '',
+      insuranceInfo: parsed.insuranceInfo || '',
+      otherFacts: parsed.otherFacts || [],
+      claimsList: parsed.claimsList || '',
     };
   } catch (error: any) {
     throw new Error(`当事人信息抽取失败: ${error.message}`);

@@ -64,7 +64,7 @@ export default function ActionPanel({
 
         <button onClick={onExtractParties} disabled={isExtractingParties || isBusy}
           className={btn(isExtractingParties, 'text-sky-600 bg-sky-50')}>
-          <Tip label="当事人信息提取" />
+          <Tip label="诉状信息提取" />
           {isExtractingParties ? <Loader2 className="w-5 h-5 animate-spin" /> : <Users className="w-5 h-5" />}
         </button>
 

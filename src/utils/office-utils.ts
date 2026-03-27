@@ -2,6 +2,48 @@ import { TEMPLATE_BASE64 } from '../assets/template';
 import type { PartyExtraction } from '../types/parties';
 
 /**
+ * 在文档中搜索标签文本所在段落，并将其替换为新内容（原文照抄）
+ */
+async function replaceBookmarkParagraph(
+  body: Word.Body,
+  context: Word.RequestContext,
+  searchLabel: string,
+  newText: string
+): Promise<void> {
+  const results = body.search(searchLabel, { matchCase: false, matchWholeWord: false });
+  results.load('items');
+  await context.sync();
+  if (results.items.length === 0) return;
+  const para = results.items[0].paragraphs.getFirst();
+  para.load('text');
+  await context.sync();
+  para.insertText(newText, Word.InsertLocation.replace);
+  await context.sync();
+}
+
+/**
+ * 在文档中搜索标签文本所在段落，在其后插入多个段落（各段独立）
+ */
+async function insertParagraphsAfterBookmark(
+  body: Word.Body,
+  context: Word.RequestContext,
+  searchLabel: string,
+  paragraphs: string[]
+): Promise<void> {
+  if (paragraphs.length === 0) return;
+  const results = body.search(searchLabel, { matchCase: false, matchWholeWord: false });
+  results.load('items');
+  await context.sync();
+  if (results.items.length === 0) return;
+  const anchorPara = results.items[0].paragraphs.getLast();
+  // 倒序插入保持顺序
+  for (let i = paragraphs.length - 1; i >= 0; i--) {
+    anchorPara.insertParagraph(paragraphs[i], Word.InsertLocation.after);
+  }
+  await context.sync();
+}
+
+/**
  * 将打包的起诉状模板插入当前 Word 文档开头
  */
 export async function insertTemplate(): Promise<void> {
@@ -332,6 +374,148 @@ export async function insertPartiesIntoTemplate(parties: PartyExtraction): Promi
     }
 
     await context.sync();
+  });
+}
+
+/**
+ * 将完整提取结果（当事人 + 诉讼请求 + 事实与理由 + 索赔清单）写入要素式诉状模板
+ * 所有内容均写入对应标签行的右侧单元格（与当事人信息表格结构一致）
+ */
+export async function insertFullExtractionIntoTemplate(parties: PartyExtraction): Promise<void> {
+  if (typeof Word === 'undefined') {
+    throw new Error('Word.js API 未加载，请在 Microsoft Word 侧边栏中运行此插件。');
+  }
+
+  await insertPartiesIntoTemplate(parties);
+
+  return Word.run(async (context) => {
+    const body = context.document.body;
+
+    // 搜索标签所在行，写入该行最后一个单元格（适用于2列行）
+    const writeToRightCell = async (label: string, content: string) => {
+      if (!content) return;
+      const results = body.search(label, { matchCase: false, matchWholeWord: false });
+      results.load('items');
+      await context.sync();
+      if (results.items.length === 0) return;
+      const cellOrNull = results.items[0].parentTableCellOrNullObject;
+      cellOrNull.load('isNullObject');
+      await context.sync();
+      if (cellOrNull.isNullObject) return;
+      const row = cellOrNull.parentRow;
+      row.cells.load('items');
+      await context.sync();
+      const cells = row.cells.items;
+      const target = cells[cells.length - 1];
+      target.body.clear();
+      target.body.insertText(content, Word.InsertLocation.start);
+      await context.sync();
+    };
+
+    // 搜索标签所在行，写入下一行的独立单元格（适用于标题独占一行 + 下一行单元格的情况）
+    const writeToNextRowCell = async (label: string, content: string) => {
+      if (!content) return;
+      const results = body.search(label, { matchCase: false, matchWholeWord: false });
+      results.load('items');
+      await context.sync();
+      if (results.items.length === 0) return;
+      const candidateCells: Word.TableCell[] = [];
+      for (const item of results.items) {
+        const cellOrNull = item.parentTableCellOrNullObject;
+        cellOrNull.load('isNullObject');
+        candidateCells.push(cellOrNull as Word.TableCell);
+      }
+      await context.sync();
+
+      const candidateRows: { row: Word.TableRow; nextRow: Word.TableRow }[] = [];
+      for (const cell of candidateCells) {
+        if (cell.isNullObject) continue;
+        const row = cell.parentRow;
+        const nextRow = row.getNextOrNullObject();
+        nextRow.load('isNullObject');
+        candidateRows.push({ row, nextRow });
+      }
+      await context.sync();
+
+      for (const entry of candidateRows) {
+        if (entry.nextRow.isNullObject) continue;
+        entry.nextRow.cells.load('items');
+      }
+      await context.sync();
+
+      const emptyNextRow = async (): Promise<Word.TableRow | null> => {
+        for (const entry of candidateRows) {
+          if (entry.nextRow.isNullObject) continue;
+          const cells = entry.nextRow.cells.items;
+          if (cells.length === 0) continue;
+          cells[0].body.load('text');
+        }
+        await context.sync();
+        for (const entry of candidateRows) {
+          if (entry.nextRow.isNullObject) continue;
+          const cells = entry.nextRow.cells.items;
+          if (cells.length === 0) continue;
+          const text = (cells[0].body.text || '').trim();
+          if (text.length === 0) return entry.nextRow;
+        }
+        return null;
+      };
+
+      let nextRow = await emptyNextRow();
+      if (!nextRow) {
+        const fallback = candidateRows[0];
+        if (!fallback) return;
+        const candidateNext = fallback.row.getNextOrNullObject();
+        candidateNext.load('isNullObject');
+        await context.sync();
+        if (candidateNext.isNullObject) {
+          const inserted = fallback.row.insertRows(Word.InsertLocation.after, 1);
+          inserted.load('items');
+          await context.sync();
+          nextRow = inserted.items[0];
+        } else {
+          nextRow = candidateNext;
+        }
+      }
+
+      nextRow.cells.load('items');
+      await context.sync();
+      let cells = nextRow.cells.items;
+      if (cells.length === 0) return;
+
+      if (cells.length > 1) {
+        try {
+          // 合并为单一单元格，保证“独立单元格”结构
+          for (let i = cells.length - 1; i >= 1; i--) {
+            cells[0].merge(cells[i]);
+          }
+          await context.sync();
+          nextRow.cells.load('items');
+          await context.sync();
+          cells = nextRow.cells.items;
+        } catch {
+          // 若宿主不支持 merge，回退为清空其他单元格，仅填充第一个
+          for (let i = 1; i < cells.length; i++) {
+            cells[i].body.clear();
+          }
+          await context.sync();
+        }
+      }
+
+      const target = cells[0];
+      target.body.clear();
+      target.body.insertText(content, Word.InsertLocation.start);
+      await context.sync();
+    };
+
+    // 诉讼请求、索赔清单：标题独占一行，内容在下一行
+    await writeToNextRowCell('诉讼请求', parties.claimsText);
+    await writeToNextRowCell('索赔清单', parties.claimsList);
+    // 事实与理由各子项：左标签右内容（2列行）
+    await writeToRightCell('交通事故发生情况', parties.accidentFacts);
+    await writeToRightCell('交通事故责任认定', parties.liabilityDetermination);
+    await writeToRightCell('机动车投保情况', parties.insuranceInfo);
+    await writeToRightCell('其他情况', parties.otherFacts.join('\n\n'));
   });
 }
 

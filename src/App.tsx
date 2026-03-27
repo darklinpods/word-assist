@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FileText, ArrowLeft } from 'lucide-react';
 
-import { insertPartiesIntoTemplate, insertTemplate } from './utils/office-utils';
+import { insertFullExtractionIntoTemplate, insertTemplate } from './utils/office-utils';
 import { useDocumentReader } from './hooks/useDocumentReader';
 import { useAnalysis } from './hooks/useAnalysis';
 import { useClaimsVerification } from './hooks/useClaimsVerification';
@@ -92,7 +92,7 @@ export default function App() {
     if (!parties.result) return;
     try {
       setPartyInsertError('');
-      await insertPartiesIntoTemplate(parties.result);
+      await insertFullExtractionIntoTemplate(parties.result);
     } catch (err: any) {
       setPartyInsertError('写入要素式诉状失败: ' + err.message);
     }
