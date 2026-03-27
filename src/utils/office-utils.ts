@@ -1,3 +1,18 @@
+import { TEMPLATE_BASE64 } from '../assets/template';
+
+/**
+ * 将打包的起诉状模板插入当前 Word 文档开头
+ */
+export async function insertTemplate(): Promise<void> {
+  if (typeof Word === 'undefined') {
+    throw new Error('Word.js API 未加载，请在 Microsoft Word 侧边栏中运行此插件。');
+  }
+  return Word.run(async (context) => {
+    context.document.body.insertFileFromBase64(TEMPLATE_BASE64, Word.InsertLocation.start);
+    await context.sync();
+  });
+}
+
 /**
  * Reads the currently selected text in the Word document.
  */

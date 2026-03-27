@@ -1,11 +1,12 @@
-import { ClipboardList, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
+import { ClipboardList, CheckCircle2, AlertTriangle, XCircle, RefreshCw } from 'lucide-react';
 import type { EvidenceCheckResult } from '../utils/evidence-rules';
 
 interface Props {
   results: EvidenceCheckResult[];
+  onRerun: () => void;
 }
 
-export default function EvidenceResult({ results }: Props) {
+export default function EvidenceResult({ results, onRerun }: Props) {
   const presentCount = results.filter(r => r.status === 'present').length;
   const weakCount = results.filter(r => r.status === 'weak').length;
   const missingCount = results.filter(r => r.status === 'missing').length;
@@ -13,10 +14,15 @@ export default function EvidenceResult({ results }: Props) {
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 leading-normal animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <h2 className="text-sm font-semibold text-gray-800 mb-4 flex items-center">
-        <ClipboardList className="w-4 h-4 mr-2 text-violet-600" />
-        证据清单核查报告
-      </h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-sm font-semibold text-gray-800 flex items-center">
+          <ClipboardList className="w-4 h-4 mr-2 text-violet-600" />
+          证据清单核查报告
+        </h2>
+        <button onClick={onRerun} className="px-3 py-1.5 flex items-center text-xs bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-md transition-colors font-medium cursor-pointer">
+          <RefreshCw className="w-3.5 h-3.5 mr-1" />重新核查
+        </button>
+      </div>
 
       {/* 统计卡片 */}
       <div className="flex gap-2 mb-4">

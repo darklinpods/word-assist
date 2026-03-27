@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { FileText, ArrowLeft } from 'lucide-react';
 
+import { insertTemplate } from './utils/office-utils';
 import { useDocumentReader } from './hooks/useDocumentReader';
 import { useAnalysis } from './hooks/useAnalysis';
 import { useClaimsVerification } from './hooks/useClaimsVerification';
@@ -9,7 +10,6 @@ import { useCompensationCalculator } from './hooks/useCompensationCalculator';
 
 import Header from './components/Header';
 import OfficeWarning from './components/OfficeWarning';
-import StepReadDocument from './components/StepReadDocument';
 import ActionPanel from './components/ActionPanel';
 import AnalysisResult from './components/AnalysisResult';
 import ClaimsResult from './components/ClaimsResult';
@@ -22,150 +22,97 @@ type View = 'main' | 'calculator';
 export default function App() {
   const [view, setView] = useState<View>('main');
 
-  // ── 主界面 hooks ──────────────────────────────────────────────
   const reader = useDocumentReader();
   const analysis = useAnalysis();
   const claims = useClaimsVerification();
   const evidence = useEvidenceCheck();
-
-  // ── 赔偿计算器 hook ───────────────────────────────────────────
   const calc = useCompensationCalculator();
 
-  // 合并各 hook 的错误信息，展示在 ActionPanel 中
   const combinedError = reader.error || analysis.error || claims.error || evidence.error;
-
-  // 任意 AI 功能正在加载时禁用按钮
   const isBusy = analysis.isLoading || claims.isVerifying || evidence.isChecking;
 
+  // 顶部按钮：只切换面板，首次切入且无结果时自动触发
   const handleAnalyze = () => {
-    claims.reset();
-    evidence.reset();
-    analysis.analyze(reader.selectedText);
+    if (!analysis.analysisResult && !analysis.isLoading) { claims.reset(); evidence.reset(); analysis.analyze(reader.selectedText); }
   };
-
   const handleVerifyClaims = () => {
-    analysis.reset();
-    evidence.reset();
-    claims.verify(reader.selectedText);
+    if (!claims.verificationResults && !claims.isVerifying) { analysis.reset(); evidence.reset(); claims.verify(reader.selectedText); }
   };
-
   const handleCheckEvidence = () => {
-    analysis.reset();
-    claims.reset();
-    evidence.check(reader.selectedText);
+    if (!evidence.evidenceResults && !evidence.isChecking) { analysis.reset(); claims.reset(); evidence.check(reader.selectedText); }
   };
 
-  // ── 渲染 ──────────────────────────────────────────────────────
+  // 结果区内"重新执行"按钮
+  const handleRerunAnalyze = () => { analysis.analyze(reader.selectedText); };
+  const handleRerunClaims = () => { claims.verify(reader.selectedText); };
+  const handleRerunEvidence = () => { evidence.check(reader.selectedText); };
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center pb-8 font-sans">
+    <div className="h-screen flex flex-col font-sans bg-gray-50">
       <Header />
 
-      <main className="w-full max-w-md p-4 flex flex-col space-y-5 mt-2">
-
-        {/* ── 计算器视图 ── */}
-        {view === 'calculator' && (
-          <>
-            {/* 返回按钮 */}
-            <button
-              onClick={() => setView('main')}
-              className="flex items-center text-sm text-gray-500 hover:text-gray-800 transition-colors -mb-2"
-            >
-              <ArrowLeft className="w-4 h-4 mr-1" />
-              返回主界面
-            </button>
-
-            {/* 计算器卡片 */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 leading-normal">
-              <h2 className="text-sm font-semibold text-gray-800 mb-4 flex items-center">
-                <span className="bg-amber-100 text-amber-700 w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold mr-2">
-                  🧮
-                </span>
-                赔偿金额计算器
-              </h2>
-
-              <CompensationForm
-                params={calc.params}
-                availableProvinces={calc.availableProvinces}
-                availableYears={calc.availableYears}
-                autoCompensationYears={calc.autoCompensationYears}
-                onUpdate={calc.updateParam}
-                onUpdateProvince={calc.updateProvince}
-                onAddDependent={calc.addDependent}
-                onRemoveDependent={calc.removeDependent}
-                onUpdateDependent={calc.updateDependent}
-                onCalculate={calc.calculate}
-                error={calc.result ? '' : calc.error}
-              />
-
-              {calc.result && (
-                <CompensationResult
-                  result={calc.result}
-                  params={calc.params}
-                  isExporting={calc.isExporting}
-                  onExport={calc.exportToWord}
-                />
-              )}
-
-              {calc.error && calc.result && (
-                <div className="mt-3 text-red-500 text-sm bg-red-50 p-2.5 rounded-md border border-red-100">
-                  {calc.error}
-                </div>
-              )}
-            </div>
-          </>
-        )}
-
-        {/* ── 主界面视图 ── */}
-        {view === 'main' && (
-          <>
-            <OfficeWarning />
-
-            {/* 步骤一：读取文档 */}
-            <StepReadDocument
-              selectedText={reader.selectedText}
-              onRead={reader.readSelection}
+      {view === 'calculator' ? (
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <button onClick={() => setView('main')}
+            className="flex items-center text-sm text-gray-500 hover:text-gray-800 transition-colors">
+            <ArrowLeft className="w-4 h-4 mr-1" />返回主界面
+          </button>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 leading-normal">
+            <h2 className="text-sm font-semibold text-gray-800 mb-4">🧮 赔偿金额计算器</h2>
+            <CompensationForm
+              params={calc.params} availableProvinces={calc.availableProvinces}
+              availableYears={calc.availableYears} autoCompensationYears={calc.autoCompensationYears}
+              onUpdate={calc.updateParam} onUpdateProvince={calc.updateProvince}
+              onAddDependent={calc.addDependent} onRemoveDependent={calc.removeDependent}
+              onUpdateDependent={calc.updateDependent} onCalculate={calc.calculate}
+              error={calc.result ? '' : calc.error}
             />
-
-            {/* 步骤二：功能选择 */}
-            <ActionPanel
-              hasText={!!reader.selectedText}
-              isBusy={isBusy}
-              isAnalyzing={analysis.isLoading}
-              isVerifying={claims.isVerifying}
-              isCheckingEvidence={evidence.isChecking}
-              onAnalyze={handleAnalyze}
-              onVerifyClaims={handleVerifyClaims}
-              onCheckEvidence={handleCheckEvidence}
-              onOpenCalculator={() => setView('calculator')}
-              error={combinedError}
-            >
-              <AnalysisResult
-                result={analysis.analysisResult}
-                onInsert={analysis.insertToDocument}
-              />
-
-              {claims.verificationResults && claims.totalSummary && (
-                <ClaimsResult
-                  results={claims.verificationResults}
-                  totalSummary={claims.totalSummary}
-                  fixingIndexes={claims.fixingIndexes}
-                  fixedIndexes={claims.fixedIndexes}
-                  fixAllStatus={claims.fixAllStatus}
-                  fixAllMessage={claims.fixAllMessage}
-                  onFixOne={claims.fixOne}
-                  onFixAll={claims.fixAll}
-                />
-              )}
-            </ActionPanel>
-
-            {/* 证据核查结果（独立卡片） */}
-            {evidence.evidenceResults && (
-              <EvidenceResult results={evidence.evidenceResults} />
+            {calc.result && (
+              <CompensationResult result={calc.result} params={calc.params}
+                isExporting={calc.isExporting} onExport={calc.exportToWord} />
             )}
-          </>
-        )}
+            {calc.error && calc.result && (
+              <div className="mt-3 text-red-500 text-sm bg-red-50 p-2.5 rounded-md border border-red-100">{calc.error}</div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col min-h-0">
+          <OfficeWarning />
 
-      </main>
+          {/* 读取文档工具栏 */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-white border-b border-gray-200">
+            <button onClick={reader.readSelection}
+              className="relative group flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors cursor-pointer">
+              <FileText className="w-4 h-4" />
+              提取选中段落
+            </button>
+            {reader.selectedText && (
+              <span className="text-xs text-gray-400 truncate max-w-[200px]">{reader.selectedText.slice(0, 40)}…</span>
+            )}
+          </div>
+
+          <ActionPanel
+            hasText={!!reader.selectedText} isBusy={isBusy}
+            isAnalyzing={analysis.isLoading} isVerifying={claims.isVerifying}
+            isCheckingEvidence={evidence.isChecking}
+            onAnalyze={handleAnalyze} onVerifyClaims={handleVerifyClaims}
+            onCheckEvidence={handleCheckEvidence} onOpenCalculator={() => setView('calculator')}
+            onInsertTemplate={insertTemplate} error={combinedError}
+          >
+            <AnalysisResult result={analysis.analysisResult} onInsert={analysis.insertToDocument} onRerun={handleRerunAnalyze} />
+            {claims.verificationResults && claims.totalSummary && (
+              <ClaimsResult
+                results={claims.verificationResults} totalSummary={claims.totalSummary}
+                fixingIndexes={claims.fixingIndexes} fixedIndexes={claims.fixedIndexes}
+                fixAllStatus={claims.fixAllStatus} fixAllMessage={claims.fixAllMessage}
+                onFixOne={claims.fixOne} onFixAll={claims.fixAll} onRerun={handleRerunClaims}
+              />
+            )}
+            {evidence.evidenceResults && <EvidenceResult results={evidence.evidenceResults} onRerun={handleRerunEvidence} />}
+          </ActionPanel>
+        </div>
+      )}
     </div>
   );
 }
