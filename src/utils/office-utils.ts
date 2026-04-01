@@ -381,6 +381,13 @@ export async function insertPartiesIntoTemplate(parties: PartyExtraction): Promi
  * 将完整提取结果（当事人 + 诉讼请求 + 事实与理由 + 索赔清单）写入要素式诉状模板
  * 所有内容均写入对应标签行的右侧单元格（与当事人信息表格结构一致）
  */
+function applyElementalFont(body: Word.Body) {
+  body.font.name = '微软雅黑';
+  body.font.size = 11;
+  body.font.scaling = 80;
+  body.font.spacing = 0.25;
+}
+
 export async function insertFullExtractionIntoTemplate(parties: PartyExtraction): Promise<void> {
   if (typeof Word === 'undefined') {
     throw new Error('Word.js API 未加载，请在 Microsoft Word 侧边栏中运行此插件。');
@@ -409,6 +416,7 @@ export async function insertFullExtractionIntoTemplate(parties: PartyExtraction)
       const target = cells[cells.length - 1];
       target.body.clear();
       target.body.insertText(content, Word.InsertLocation.start);
+      applyElementalFont(target.body);
       await context.sync();
     };
 
@@ -505,6 +513,7 @@ export async function insertFullExtractionIntoTemplate(parties: PartyExtraction)
       const target = cells[0];
       target.body.clear();
       target.body.insertText(content, Word.InsertLocation.start);
+      applyElementalFont(target.body);
       await context.sync();
     };
 
@@ -516,6 +525,70 @@ export async function insertFullExtractionIntoTemplate(parties: PartyExtraction)
     await writeToRightCell('交通事故责任认定', parties.liabilityDetermination);
     await writeToRightCell('机动车投保情况', parties.insuranceInfo);
     await writeToRightCell('其他情况', parties.otherFacts.join('\n\n'));
+  });
+}
+
+// ─── 传统诉状格式整理 ─────────────────────────────────────────
+
+const SUBTITLE_KEYWORDS = ['诉讼请求', '事实与理由', '索赔清单', '证据目录'];
+
+/**
+ * 对当前文档执行传统诉状格式整理（四步）
+ */
+export async function formatTraditionalComplaint(): Promise<void> {
+  if (typeof Word === 'undefined') {
+    throw new Error('Word.js API 未加载，请在 Microsoft Word 侧边栏中运行此插件。');
+  }
+  return Word.run(async (context) => {
+    const body = context.document.body;
+    const paras = body.paragraphs;
+    paras.load('items');
+    await context.sync();
+
+    for (const para of paras.items) {
+      para.load('text');
+    }
+    await context.sync();
+
+    const nonEmpty = paras.items.filter(p => p.text.trim().length > 0);
+
+    for (const para of paras.items) {
+      // 步骤1：全文基础格式
+      para.font.name = '仿宋';
+      para.font.size = 15;           // 小三号
+      para.font.bold = false;
+      para.alignment = Word.Alignment.justified;
+      para.firstLineIndent = 30;     // 约2字符（15pt×2）
+      para.lineSpacing = 25;         // 行高25磅
+
+      const text = para.text.trim();
+      if (!text) continue;
+
+      // 步骤2：主标题（含"诉状"且字数<20）
+      if (text.length < 20 && (text.includes('诉状') || text.includes('起诉状'))) {
+        para.alignment = Word.Alignment.centered;
+        para.font.size = 24;         // 小一号
+        para.font.bold = true;
+        para.firstLineIndent = 0;
+        continue;
+      }
+
+      // 步骤3：副标题
+      if (SUBTITLE_KEYWORDS.some(kw => text.includes(kw))) {
+        para.font.size = 18;         // 小二号
+        para.font.bold = true;
+        continue;
+      }
+    }
+
+    // 步骤4：最后一个非空段落（法院名称）顶格左对齐
+    if (nonEmpty.length > 0) {
+      const last = nonEmpty[nonEmpty.length - 1];
+      last.alignment = Word.Alignment.left;
+      last.firstLineIndent = 0;
+    }
+
+    await context.sync();
   });
 }
 

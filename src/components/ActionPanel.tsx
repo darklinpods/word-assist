@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { Wand2, Calculator, ClipboardList, Loader2, ReceiptText, FileText, IdCard, Users } from 'lucide-react';
+import { Wand2, Calculator, ClipboardList, Loader2, ReceiptText, FileText, IdCard, Users, PaintbrushVertical } from 'lucide-react';
 
 interface Props {
   hasText: boolean;
@@ -16,6 +16,7 @@ interface Props {
   onExtractParties: () => void;
   onOpenCalculator: () => void;
   onInsertTemplate: () => void;
+  onFormatDocument: () => void;
   error: string;
   children?: ReactNode;
 }
@@ -31,7 +32,7 @@ const Tip = ({ label }: { label: string }) => (
 
 export default function ActionPanel({
   hasText, isBusy, isAnalyzing, isVerifying, isCheckingEvidence, isCheckingIdCard, isExtractingParties,
-  onAnalyze, onVerifyClaims, onCheckEvidence, onCheckIdCard, onExtractParties, onOpenCalculator, onInsertTemplate,
+  onAnalyze, onVerifyClaims, onCheckEvidence, onCheckIdCard, onExtractParties, onOpenCalculator, onInsertTemplate, onFormatDocument,
   error, children,
 }: Props) {
   return (
@@ -80,6 +81,12 @@ export default function ActionPanel({
           className={btn(false, '') + ' hover:text-gray-700 hover:bg-gray-100'}>
           <Tip label="插入起诉状模板" />
           <FileText className="w-5 h-5" />
+        </button>
+
+        <button onClick={onFormatDocument}
+          className={btn(false, '') + ' hover:text-emerald-600 hover:bg-emerald-50'}>
+          <Tip label="传统诉状格式整理" />
+          <PaintbrushVertical className="w-5 h-5" />
         </button>
       </div>
 

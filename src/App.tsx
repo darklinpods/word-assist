@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FileText, ArrowLeft } from 'lucide-react';
 
-import { insertFullExtractionIntoTemplate, insertTemplate } from './utils/office-utils';
+import { insertFullExtractionIntoTemplate, insertTemplate, formatTraditionalComplaint } from './utils/office-utils';
 import { useDocumentReader } from './hooks/useDocumentReader';
 import { useAnalysis } from './hooks/useAnalysis';
 import { useClaimsVerification } from './hooks/useClaimsVerification';
@@ -152,7 +152,9 @@ export default function App() {
             onCheckEvidence={handleCheckEvidence} onCheckIdCard={handleCheckIdCard}
             onExtractParties={handleExtractParties}
             onOpenCalculator={() => setView('calculator')}
-            onInsertTemplate={insertTemplate} error={combinedError}
+            onInsertTemplate={insertTemplate}
+            onFormatDocument={formatTraditionalComplaint}
+            error={combinedError}
           >
             <AnalysisResult result={analysis.analysisResult} onInsert={analysis.insertToDocument} onRerun={handleRerunAnalyze} />
             {claims.verificationResults && claims.totalSummary && (
