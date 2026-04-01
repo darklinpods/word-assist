@@ -2,19 +2,51 @@
  * Real AI service connecting to Volcengine Ark API.
  */
 
-// 使用你的火山引擎 API Key
-const API_KEY = '557f4ffb-d5e3-4a2c-a213-eea305641f33';
+import type { ClaimItemExtracted } from '../utils/compensation-rules';
+import { EVIDENCE_CHECKLIST } from '../utils/evidence-rules';
+import type { EvidenceRawResult } from '../utils/evidence-rules';
+import type { PartyExtraction } from '../types/parties';
 
-// ⚠️ 注意：火山引擎的大模型强制要求必须使用你自己创建的“推理接入点(Endpoint ID)”，类似于 ep-2024...
-// 这里为你预留了位置。请登录火山方舟控制台，选择【豆包·Pro·32k】或【DeepSeek-V3】后创建一个接入点。
-const MODEL_EP_ID = 'ep-m-20260319002513-6dws2';
+const API_KEY = import.meta.env.VITE_ARK_API_KEY;
+const MODEL_EP_ID = import.meta.env.VITE_ARK_MODEL_EP_ID;
+const API_URL = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
+
+function assertConfigured(text: string): void {
+  if (!text || text.trim() === '') throw new Error('未选中任何文字。');
+  if (MODEL_EP_ID.includes('请在此处填入')) {
+    throw new Error('请先在 src/services/ai.ts 填入模型接入点 ID');
+  }
+}
+
+async function callArkAPI(
+  messages: { role: string; content: string }[],
+  temperature: number
+): Promise<string> {
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+    body: JSON.stringify({ model: MODEL_EP_ID, messages, temperature }),
+  });
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(`API: ${err.error?.message || response.statusText}`);
+  }
+  const data = await response.json();
+  return data.choices[0].message.content as string;
+}
+
+function stripMarkdownFence(content: string): string {
+  return content
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim();
+}
 
 export async function analyzeLegalText(text: string): Promise<string> {
   if (!text || text.trim() === '') {
     return '请先选中诉状中的部分文字，然后再点击分析。';
   }
-
-  // 拦截未配置 Endpoint ID 的情况并在界面抛出提示
   if (MODEL_EP_ID.includes('请在此处填入')) {
     throw new Error('请先在 src/services/ai.ts 文件的第 9 行填入你的火山引擎模型接入点 ID (格式类似于 ep-xxxxxx)');
   }
@@ -30,52 +62,20 @@ export async function analyzeLegalText(text: string): Promise<string> {
 请结构化地列出审查意见及具体的修改建议。保持语气的专业、客观。`;
 
   try {
-    const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`
-      },
-      body: JSON.stringify({
-        model: MODEL_EP_ID,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `请帮我深入审查并提出修改这段诉状建议：\n\n${text}` }
-        ],
-        temperature: 0.2, // 诉状类严谨的文本，将温度设置在较低水平，防止模型过于奔放
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`API 请求出错: ${errorData.error?.message || response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.choices[0].message.content;
-
+    return await callArkAPI(
+      [{ role: 'system', content: systemPrompt }, { role: 'user', content: `请帮我深入审查并提出修改这段诉状建议：\n\n${text}` }],
+      0.2
+    );
   } catch (error: any) {
     throw new Error(`请求火山引擎大模型时发生异常: ${error.message}`);
   }
 }
 
-import type { ClaimItemExtracted } from '../utils/compensation-rules';
-import { EVIDENCE_CHECKLIST } from '../utils/evidence-rules';
-import type { EvidenceRawResult } from '../utils/evidence-rules';
-import type { PartyExtraction } from '../types/parties';
-
 /**
  * 结构化抽取交通事故索赔事实要素
- * 屏蔽主观推理，只管客观读数
  */
 export async function extractClaimElementsAsJSON(text: string): Promise<ClaimItemExtracted[]> {
-  if (!text || text.trim() === '') {
-    throw new Error('未选中任何文字。');
-  }
-
-  if (MODEL_EP_ID.includes('请在此处填入')) {
-    throw new Error('请先在 src/services/ai.ts 文件填入模型接入点 ID');
-  }
+  assertConfigured(text);
 
   const systemPrompt = `你是一个无情的法律事实提取机器。
 请从给定的交通事故起诉状文本中，抽取所有主张的索赔科目明细，严禁进行任何你自己的计算！你只负责把文书中写上的数字原样抄录并格式化。
@@ -100,57 +100,24 @@ export async function extractClaimElementsAsJSON(text: string): Promise<ClaimIte
 `;
 
   try {
-    const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`
-      },
-      body: JSON.stringify({
-        model: MODEL_EP_ID,
-        // 这里强制要求 JSON 输出（由于部分模型可能不支持 response_format: { type: "json_object" }，用严厉的 Prompt 辅以解析即可）
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: text }
-        ],
-        temperature: 0.0, // 事实提取温度降到完全冷酷
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`API: ${errorData.error?.message || response.statusText}`);
-    }
-
-    const data = await response.json();
-    let content = data.choices[0].message.content.trim();
-    
-    // 粗暴剔除可能被大模型多嘴加上的 ```json 块
-    if (content.startsWith('\`\`\`json')) {
-      content = content.replace(/^\\\`\\\`\\\`json/i, '').replace(/\\\`\\\`\\\`$/, '').trim();
-    } else if (content.startsWith('\`\`\`')) {
-      content = content.replace(/^\\\`\\\`\\\`/i, '').replace(/\\\`\\\`\\\`$/, '').trim();
-    }
-
+    const content = stripMarkdownFence(
+      await callArkAPI(
+        [{ role: 'system', content: systemPrompt }, { role: 'user', content: text }],
+        0.0
+      )
+    );
     return JSON.parse(content) as ClaimItemExtracted[];
-
   } catch (error: any) {
     throw new Error(`解析索赔失败: ${error.message}`);
   }
 }
 
 /**
- * 证据清单核查：让 AI 逐一判断诉状中每项标准证据的出具状态
+ * 证据清单核查
  */
 export async function extractEvidenceFromText(text: string): Promise<EvidenceRawResult[]> {
-  if (!text || text.trim() === '') {
-    throw new Error('未选中任何文字。');
-  }
-  if (MODEL_EP_ID.includes('请在此处填入')) {
-    throw new Error('请先填入模型接入点 ID');
-  }
+  assertConfigured(text);
 
-  // 把证据清单序列化给模型，确保 id 完全一致
   const checklistSummary = EVIDENCE_CHECKLIST.map(
     (e, i) => `${i + 1}. id="${e.id}" 名称="${e.name}" 用途="${e.purpose}"`
   ).join('\n');
@@ -177,37 +144,12 @@ ${checklistSummary}
 必须输出全部 ${EVIDENCE_CHECKLIST.length} 项，每项都要有 id、status、note 三个字段。`;
 
   try {
-    const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: MODEL_EP_ID,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `请核查以下诉状材料中的证据出具情况：\n\n${text}` },
-        ],
-        temperature: 0.0,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`API: ${errorData.error?.message || response.statusText}`);
-    }
-
-    const data = await response.json();
-    let content = data.choices[0].message.content.trim();
-
-    // 剥离可能的 markdown 代码块
-    content = content
-      .replace(/^```json\s*/i, '')
-      .replace(/^```\s*/i, '')
-      .replace(/\s*```$/, '')
-      .trim();
-
+    const content = stripMarkdownFence(
+      await callArkAPI(
+        [{ role: 'system', content: systemPrompt }, { role: 'user', content: `请核查以下诉状材料中的证据出具情况：\n\n${text}` }],
+        0.0
+      )
+    );
     return JSON.parse(content) as EvidenceRawResult[];
   } catch (error: any) {
     throw new Error(`证据核查失败: ${error.message}`);
@@ -218,12 +160,7 @@ ${checklistSummary}
  * 抽取当事人信息（严格按原文，不改写）
  */
 export async function extractPartiesFromText(text: string): Promise<PartyExtraction> {
-  if (!text || text.trim() === '') {
-    throw new Error('未选中任何文字。');
-  }
-  if (MODEL_EP_ID.includes('请在此处填入')) {
-    throw new Error('请先填入模型接入点 ID');
-  }
+  assertConfigured(text);
 
   const systemPrompt = `你是一个诉状信息格式化抽取器。
 只从传统式起诉状中抽取信息，禁止改写任何内容，任何未出现的信息不得推断或补充。
@@ -287,36 +224,12 @@ export async function extractPartiesFromText(text: string): Promise<PartyExtract
 `;
 
   try {
-    const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: MODEL_EP_ID,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: text },
-        ],
-        temperature: 0.0,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`API: ${errorData.error?.message || response.statusText}`);
-    }
-
-    const data = await response.json();
-    let content = data.choices[0].message.content.trim();
-
-    content = content
-      .replace(/^```json\s*/i, '')
-      .replace(/^```\s*/i, '')
-      .replace(/\s*```$/, '')
-      .trim();
-
+    const content = stripMarkdownFence(
+      await callArkAPI(
+        [{ role: 'system', content: systemPrompt }, { role: 'user', content: text }],
+        0.0
+      )
+    );
     const parsed = JSON.parse(content) as PartyExtraction;
     return {
       plaintiffsNatural: parsed.plaintiffsNatural || [],

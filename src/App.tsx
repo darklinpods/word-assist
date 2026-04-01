@@ -35,6 +35,10 @@ export default function App() {
   const parties = usePartyExtraction();
   const calc = useCompensationCalculator();
 
+  const resetAll = () => {
+    analysis.reset(); claims.reset(); evidence.reset(); idCard.reset(); parties.reset(); setPartyInsertError('');
+  };
+
   const combinedError =
     reader.error ||
     analysis.error ||
@@ -53,32 +57,27 @@ export default function App() {
   // 顶部按钮：只切换面板，首次切入且无结果时自动触发
   const handleAnalyze = () => {
     if (!analysis.analysisResult && !analysis.isLoading) {
-      claims.reset(); evidence.reset(); idCard.reset(); parties.reset(); setPartyInsertError('');
-      analysis.analyze(reader.selectedText);
+      resetAll(); analysis.analyze(reader.selectedText);
     }
   };
   const handleVerifyClaims = () => {
     if (!claims.verificationResults && !claims.isVerifying) {
-      analysis.reset(); evidence.reset(); idCard.reset(); parties.reset(); setPartyInsertError('');
-      claims.verify(reader.selectedText);
+      resetAll(); claims.verify(reader.selectedText);
     }
   };
   const handleCheckEvidence = () => {
     if (!evidence.evidenceResults && !evidence.isChecking) {
-      analysis.reset(); claims.reset(); idCard.reset(); parties.reset(); setPartyInsertError('');
-      evidence.check(reader.selectedText);
+      resetAll(); evidence.check(reader.selectedText);
     }
   };
   const handleCheckIdCard = () => {
     if (!idCard.isChecking) {
-      analysis.reset(); claims.reset(); evidence.reset(); parties.reset(); setPartyInsertError('');
-      idCard.checkDocument();
+      resetAll(); idCard.checkDocument();
     }
   };
   const handleExtractParties = () => {
     if (!parties.isExtracting) {
-      analysis.reset(); claims.reset(); evidence.reset(); idCard.reset(); setPartyInsertError('');
-      parties.extract();
+      resetAll(); parties.extract();
     }
   };
 

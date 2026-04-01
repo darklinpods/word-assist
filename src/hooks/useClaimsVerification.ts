@@ -106,8 +106,8 @@ export function useClaimsVerification() {
   const reset = () => {
     setVerificationResults(null);
     setTotalSummary(null);
-    setFixedIndexes(new Set());
     setFixingIndexes(new Set());
+    setFixedIndexes(new Set());
     setFixAllStatus('idle');
     setFixAllMessage('');
     setError('');

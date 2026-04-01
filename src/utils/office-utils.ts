@@ -1,6 +1,14 @@
 import { TEMPLATE_BASE64 } from '../assets/template';
 import type { PartyExtraction } from '../types/parties';
 
+const HIGHLIGHT_COLOR = '#c0392b';
+
+function assertWordLoaded(): void {
+  if (typeof Word === 'undefined') {
+    throw new Error('Word.js API 未加载，请在 Microsoft Word 侧边栏中运行此插件。');
+  }
+}
+
 /**
  * 在文档中搜索标签文本所在段落，并将其替换为新内容（原文照抄）
  */
@@ -47,9 +55,7 @@ async function insertParagraphsAfterBookmark(
  * 将打包的起诉状模板插入当前 Word 文档开头
  */
 export async function insertTemplate(): Promise<void> {
-  if (typeof Word === 'undefined') {
-    throw new Error('Word.js API 未加载，请在 Microsoft Word 侧边栏中运行此插件。');
-  }
+  assertWordLoaded();
   return Word.run(async (context) => {
     context.document.body.insertFileFromBase64(TEMPLATE_BASE64, Word.InsertLocation.start);
     await context.sync();
@@ -60,9 +66,7 @@ export async function insertTemplate(): Promise<void> {
  * 读取 Word 文档正文文本
  */
 export async function getDocumentText(): Promise<string> {
-  if (typeof Word === 'undefined') {
-    throw new Error('Word.js API 未加载，请在 Microsoft Word 侧边栏中运行此插件。');
-  }
+  assertWordLoaded();
   return Word.run(async (context) => {
     const body = context.document.body;
     body.load('text');
@@ -75,9 +79,7 @@ export async function getDocumentText(): Promise<string> {
  * 在文档中定位并选中指定文本（首次匹配）
  */
 export async function locateTextInDocument(text: string): Promise<boolean> {
-  if (typeof Word === 'undefined') {
-    throw new Error('Word.js API 未加载，请在 Microsoft Word 侧边栏中运行此插件。');
-  }
+  assertWordLoaded();
   return Word.run(async (context) => {
     const body = context.document.body;
     const results = body.search(text, { matchCase: false, matchWholeWord: false });
@@ -113,9 +115,7 @@ export async function getSelectedText(): Promise<string> {
  * Inserts suggestion text after the current selection
  */
 export async function insertSuggestion(text: string): Promise<void> {
-  if (typeof Word === 'undefined') {
-    throw new Error('Word.js API is not loaded.');
-  }
+  assertWordLoaded();
   return Word.run(async (context) => {
     const selection = context.document.getSelection();
     // Insert text at the end of the selection
@@ -136,14 +136,11 @@ export async function replaceAmountInDocument(
   newAmount: number,
   _itemType: string
 ): Promise<number> {
-  if (typeof Word === 'undefined') {
-    throw new Error('Word.js API 未加载，请在 Microsoft Word 侧边栏中运行此插件。');
-  }
+  assertWordLoaded();
 
   return Word.run(async (context) => {
     const body = context.document.body;
 
-    // 构建多种金额格式的候选搜索词（整数/两位小数/带千分位）
     const formatVariants = buildAmountVariants(oldAmount);
     const newAmountStr = formatFinalAmount(newAmount);
 
@@ -157,7 +154,7 @@ export async function replaceAmountInDocument(
       if (results.items.length > 0) {
         for (const range of results.items) {
           range.insertText(newAmountStr, Word.InsertLocation.replace);
-          range.font.color = '#c0392b';   // 红色
+          range.font.color = HIGHLIGHT_COLOR;
           range.font.bold = true;
           totalReplaced++;
         }
@@ -178,9 +175,7 @@ export async function replaceAmountInDocument(
 export async function replaceAllAmounts(
   corrections: Array<{ oldAmount: number; newAmount: number; itemType: string }>
 ): Promise<number> {
-  if (typeof Word === 'undefined') {
-    throw new Error('Word.js API 未加载，请在 Microsoft Word 侧边栏中运行此插件。');
-  }
+  assertWordLoaded();
 
   return Word.run(async (context) => {
     const body = context.document.body;
@@ -198,7 +193,7 @@ export async function replaceAllAmounts(
         if (results.items.length > 0) {
           for (const range of results.items) {
             range.insertText(newAmountStr, Word.InsertLocation.replace);
-            range.font.color = '#c0392b';
+            range.font.color = HIGHLIGHT_COLOR;
             range.font.bold = true;
             totalReplaced++;
           }
@@ -216,9 +211,7 @@ export async function replaceAllAmounts(
  * 将当事人信息写入要素式诉状模板中的“当事人信息”表格（按原文，不改写）
  */
 export async function insertPartiesIntoTemplate(parties: PartyExtraction): Promise<void> {
-  if (typeof Word === 'undefined') {
-    throw new Error('Word.js API 未加载，请在 Microsoft Word 侧边栏中运行此插件。');
-  }
+  assertWordLoaded();
 
   return Word.run(async (context) => {
     const body = context.document.body;
@@ -389,9 +382,7 @@ function applyElementalFont(body: Word.Body) {
 }
 
 export async function insertFullExtractionIntoTemplate(parties: PartyExtraction): Promise<void> {
-  if (typeof Word === 'undefined') {
-    throw new Error('Word.js API 未加载，请在 Microsoft Word 侧边栏中运行此插件。');
-  }
+  assertWordLoaded();
 
   await insertPartiesIntoTemplate(parties);
 
@@ -536,9 +527,7 @@ const SUBTITLE_KEYWORDS = ['诉讼请求', '事实与理由', '索赔清单', '�
  * 对当前文档执行传统诉状格式整理（四步）
  */
 export async function formatTraditionalComplaint(): Promise<void> {
-  if (typeof Word === 'undefined') {
-    throw new Error('Word.js API 未加载，请在 Microsoft Word 侧边栏中运行此插件。');
-  }
+  assertWordLoaded();
   return Word.run(async (context) => {
     const body = context.document.body;
     const paras = body.paragraphs;
@@ -577,6 +566,8 @@ export async function formatTraditionalComplaint(): Promise<void> {
       if (SUBTITLE_KEYWORDS.some(kw => text.includes(kw))) {
         para.font.size = 18;         // 小二号
         para.font.bold = true;
+        para.alignment = Word.Alignment.centered;
+        para.firstLineIndent = 0;
         continue;
       }
     }
@@ -649,9 +640,7 @@ export async function exportCompensationTable(
   items: CompensationExportItem[],
   meta: CompensationExportMeta
 ): Promise<void> {
-  if (typeof Word === 'undefined') {
-    throw new Error('Word.js API 未加载，请在 Microsoft Word 侧边栏中运行此插件。');
-  }
+  assertWordLoaded();
 
   const enabledItems = items.filter(i => i.enabled);
   const residentLabel = meta.residentType === 'urban' ? '城镇居民' : '农村居民';
