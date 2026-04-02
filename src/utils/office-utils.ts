@@ -255,21 +255,24 @@ export async function insertPartiesIntoTemplate(parties: PartyExtraction): Promi
     }
 
     const rows = targetTable.rows;
-    rows.load('items');
-    await context.sync();
+    const reloadRows = async () => {
+      rows.load('items');
+      await context.sync();
+      for (const row of rows.items) {
+        row.load('values');
+        row.cells.load('items');
+      }
+      await context.sync();
+    };
 
-    for (const row of rows.items) {
-      row.load('values');
-      row.cells.load('items');
-    }
-    await context.sync();
+    await reloadRows();
 
     const findRowByLabel = (label: string) =>
       rows.items.find((row) => row.values.some((r) => r.some((cell) => typeof cell === 'string' && cell.includes(label))));
 
-    const plaintiffRow = findRowByLabel('原告（自然人）');
-    const defendantNaturalRow = findRowByLabel('被告（自然人）');
-    const insuranceRow = findRowByLabel('被告（保险公司）');
+    let plaintiffRow = findRowByLabel('原告（自然人）');
+    let defendantNaturalRow = findRowByLabel('被告（自然人）');
+    let insuranceRow = findRowByLabel('被告（保险公司）');
 
     if (!plaintiffRow || !defendantNaturalRow || !insuranceRow) {
       throw new Error('模板中的当事人信息行不完整，请确认模板未被修改。');
@@ -301,16 +304,15 @@ export async function insertPartiesIntoTemplate(parties: PartyExtraction): Promi
       }
       writeRow(baseRow, label, contents[0]);
       let lastRow = baseRow;
-      if (contents.length > 1) {
-        const inserted = baseRow.insertRows(Word.InsertLocation.after, contents.length - 1);
-        inserted.load('items');
+      for (let i = 1; i < contents.length; i++) {
+        const newRows = lastRow.insertRows(Word.InsertLocation.after, 1);
+        newRows.load('items');
         await context.sync();
-        for (const row of inserted.items) {
-          row.cells.load('items');
-        }
+        const newRow = newRows.items[0];
+        newRow.cells.load('items');
         await context.sync();
-        inserted.items.forEach((row, idx) => writeRow(row, label, contents[idx + 1]));
-        lastRow = inserted.items[inserted.items.length - 1];
+        writeRow(newRow, label, contents[i]);
+        lastRow = newRow;
       }
       return lastRow;
     };
@@ -321,18 +323,28 @@ export async function insertPartiesIntoTemplate(parties: PartyExtraction): Promi
       contents: string[]
     ): Promise<Word.TableRow> => {
       if (contents.length === 0) return anchorRow;
-      const inserted = anchorRow.insertRows(Word.InsertLocation.after, contents.length);
-      inserted.load('items');
-      await context.sync();
-      for (const row of inserted.items) {
-        row.cells.load('items');
+      let lastRow = anchorRow;
+      for (let i = 0; i < contents.length; i++) {
+        const newRows = lastRow.insertRows(Word.InsertLocation.after, 1);
+        newRows.load('items');
+        await context.sync();
+        const newRow = newRows.items[0];
+        newRow.cells.load('items');
+        await context.sync();
+        writeRow(newRow, label, contents[i]);
+        lastRow = newRow;
       }
-      await context.sync();
-      inserted.items.forEach((row, idx) => writeRow(row, label, contents[idx]));
-      return inserted.items[inserted.items.length - 1];
+      return lastRow;
     };
 
     await applyRowsFromBase(plaintiffRow, '原告（自然人）', parties.plaintiffsNatural);
+    // 插入多原告可能导致后续行引用偏移，刷新行引用
+    await reloadRows();
+    defendantNaturalRow = findRowByLabel('被告（自然人）');
+    insuranceRow = findRowByLabel('被告（保险公司）');
+    if (!defendantNaturalRow || !insuranceRow) {
+      throw new Error('模板中的当事人信息行不完整，请确认模板未被修改。');
+    }
 
     const hasDefNatural = parties.defendantsNatural.length > 0;
     const hasDefLegal = parties.defendantsLegal.length > 0;
@@ -348,6 +360,13 @@ export async function insertPartiesIntoTemplate(parties: PartyExtraction): Promi
 
     if (hasDefNatural && hasDefLegal) {
       lastDefendantRow = await insertRowsAfter(lastDefendantRow, '被告（法人）', parties.defendantsLegal);
+    }
+
+    // 插入多被告可能导致保险公司行引用偏移，刷新行引用
+    await reloadRows();
+    insuranceRow = findRowByLabel('被告（保险公司）');
+    if (!insuranceRow) {
+      throw new Error('模板中的当事人信息行不完整，请确认模板未被修改。');
     }
 
     const hasInsurance = parties.defendantsInsurance.length > 0;
