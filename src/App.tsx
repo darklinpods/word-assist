@@ -53,6 +53,13 @@ export default function App() {
     evidence.isChecking ||
     idCard.isChecking ||
     parties.isExtracting;
+  const hasAnyResult = Boolean(
+    analysis.analysisResult ||
+    (claims.verificationResults && claims.totalSummary) ||
+    evidence.evidenceResults ||
+    idCard.results ||
+    parties.result
+  );
 
   // 顶部按钮：只切换面板，首次切入且无结果时自动触发
   const handleAnalyze = () => {
@@ -130,6 +137,12 @@ export default function App() {
         <div className="flex-1 flex flex-col min-h-0">
           <OfficeWarning />
 
+          <div className="px-3 pt-3">
+            <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-600">
+              流程：1 提取文本 → 2 选择功能 → 3 查看结果/写回
+            </div>
+          </div>
+
           {/* 读取文档工具栏 */}
           <div className="flex items-center gap-2 px-3 py-2 bg-white border-b border-gray-200">
             <button onClick={reader.readSelection}
@@ -147,6 +160,7 @@ export default function App() {
             isAnalyzing={analysis.isLoading} isVerifying={claims.isVerifying}
             isCheckingEvidence={evidence.isChecking} isCheckingIdCard={idCard.isChecking}
             isExtractingParties={parties.isExtracting}
+            hasResults={hasAnyResult}
             onAnalyze={handleAnalyze} onVerifyClaims={handleVerifyClaims}
             onCheckEvidence={handleCheckEvidence} onCheckIdCard={handleCheckIdCard}
             onExtractParties={handleExtractParties}
