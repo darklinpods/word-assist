@@ -6,6 +6,7 @@ import type { ClaimItemExtracted } from '../utils/compensation-rules';
 import { EVIDENCE_CHECKLIST } from '../utils/evidence-rules';
 import type { EvidenceRawResult } from '../utils/evidence-rules';
 import type { PartyExtraction } from '../types/parties';
+import { getErrorMessage } from '../utils/error';
 
 const API_KEY = import.meta.env.VITE_ARK_API_KEY;
 const MODEL_EP_ID = import.meta.env.VITE_ARK_MODEL_EP_ID;
@@ -66,8 +67,8 @@ export async function analyzeLegalText(text: string): Promise<string> {
       [{ role: 'system', content: systemPrompt }, { role: 'user', content: `请帮我深入审查并提出修改这段诉状建议：\n\n${text}` }],
       0.2
     );
-  } catch (error: any) {
-    throw new Error(`请求火山引擎大模型时发生异常: ${error.message}`);
+  } catch (error: unknown) {
+    throw new Error(`请求火山引擎大模型时发生异常: ${getErrorMessage(error)}`);
   }
 }
 
@@ -107,8 +108,8 @@ export async function extractClaimElementsAsJSON(text: string): Promise<ClaimIte
       )
     );
     return JSON.parse(content) as ClaimItemExtracted[];
-  } catch (error: any) {
-    throw new Error(`解析索赔失败: ${error.message}`);
+  } catch (error: unknown) {
+    throw new Error(`解析索赔失败: ${getErrorMessage(error)}`);
   }
 }
 
@@ -151,8 +152,8 @@ ${checklistSummary}
       )
     );
     return JSON.parse(content) as EvidenceRawResult[];
-  } catch (error: any) {
-    throw new Error(`证据核查失败: ${error.message}`);
+  } catch (error: unknown) {
+    throw new Error(`证据核查失败: ${getErrorMessage(error)}`);
   }
 }
 
@@ -244,7 +245,7 @@ export async function extractPartiesFromText(text: string): Promise<PartyExtract
       otherFacts: parsed.otherFacts || [],
       claimsList: parsed.claimsList || '',
     };
-  } catch (error: any) {
-    throw new Error(`当事人信息抽取失败: ${error.message}`);
+  } catch (error: unknown) {
+    throw new Error(`当事人信息抽取失败: ${getErrorMessage(error)}`);
   }
 }

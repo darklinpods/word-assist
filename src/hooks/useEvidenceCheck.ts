@@ -2,35 +2,28 @@ import { useState } from 'react';
 import { extractEvidenceFromText } from '../services/ai';
 import { mergeEvidenceResults } from '../utils/evidence-rules';
 import type { EvidenceCheckResult } from '../utils/evidence-rules';
+import { useAsyncTask } from './useAsyncTask';
 
 export function useEvidenceCheck() {
   const [evidenceResults, setEvidenceResults] = useState<EvidenceCheckResult[] | null>(null);
-  const [isChecking, setIsChecking] = useState(false);
-  const [error, setError] = useState('');
+  const { isLoading, error, run, setError, reset: resetError } = useAsyncTask();
 
   const check = async (text: string) => {
     if (!text) {
       setError('请先获取文档内容。');
       return;
     }
-    try {
-      setIsChecking(true);
-      setError('');
-      setEvidenceResults(null);
-      const rawResults = await extractEvidenceFromText(text);
-      const merged = mergeEvidenceResults(rawResults);
-      setEvidenceResults(merged);
-    } catch (err: any) {
-      setError('证据核查出错: ' + err.message);
-    } finally {
-      setIsChecking(false);
-    }
+    setEvidenceResults(null);
+    const rawResults = await run(() => extractEvidenceFromText(text), { errorPrefix: '证据核查出错: ' });
+    if (!rawResults) return;
+    const merged = mergeEvidenceResults(rawResults);
+    setEvidenceResults(merged);
   };
 
   const reset = () => {
     setEvidenceResults(null);
-    setError('');
+    resetError();
   };
 
-  return { evidenceResults, isChecking, error, check, reset };
+  return { evidenceResults, isChecking: isLoading, error, check, reset };
 }

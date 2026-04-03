@@ -10,6 +10,7 @@ import {
   calcVictimCompensationYears,
 } from '../utils/compensation-calculator';
 import { exportCompensationTable } from '../utils/office-utils';
+import { getErrorMessage } from '../utils/error';
 
 const DEFAULT_PARAMS: CaseParams = {
   province: '湖北省',
@@ -106,8 +107,8 @@ export function useCompensationCalculator() {
       setError('');
       const res = calculateCompensation(params, standards);
       setResult(res);
-    } catch (err: any) {
-      setError('计算出错: ' + err.message);
+    } catch (err: unknown) {
+      setError('计算出错: ' + getErrorMessage(err));
     }
   }, [params]);
 
@@ -125,8 +126,8 @@ export function useCompensationCalculator() {
         caseType: params.caseType,
         total: result.total,
       });
-    } catch (err: any) {
-      setError('导出失败: ' + err.message);
+    } catch (err: unknown) {
+      setError('导出失败: ' + getErrorMessage(err));
     } finally {
       setIsExporting(false);
     }

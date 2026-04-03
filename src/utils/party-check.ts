@@ -4,7 +4,7 @@ import { extractIdCardsFromText, validateIdCard } from './id-card';
 const LINE_SPLIT = /\r?\n+/;
 const PHONE_REGEX = /(1[3-9]\d{9}|0\d{2,3}-?\d{7,8})/;
 const CREDIT_CODE_REGEX = /[0-9A-Z]{18}/;
-const DATE_REGEX = /(\d{4})[年\-\/.](\d{1,2})[月\-\/.](\d{1,2})/;
+const DATE_REGEX = /(\d{4})[年\-/.](\d{1,2})[月\-/.](\d{1,2})/;
 
 const getLineValue = (raw: string, label: string): string => {
   const lines = raw.split(LINE_SPLIT);

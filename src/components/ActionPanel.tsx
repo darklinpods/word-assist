@@ -1,15 +1,13 @@
 import { type ReactNode, useState } from 'react';
-import { Wand2, Calculator, ClipboardList, Loader2, ReceiptText, FileText, Users, PaintbrushVertical } from 'lucide-react';
+import { Loader2, ReceiptText, FileText, PaintbrushVertical } from 'lucide-react';
+import type { PanelDefinition, PanelId } from '../panels/panels';
 
 interface Props {
   hasText: boolean;
   isBusy: boolean;
-  isAnalyzing: boolean;
-  isVerifying: boolean;
-  isCheckingEvidence: boolean;
-  isExtractingParties: boolean;
-  activePanel: 'analysis' | 'claims' | 'evidence' | 'parties' | null;
-  onSelectPanel: (panel: 'analysis' | 'claims' | 'evidence' | 'parties') => void;
+  panels: PanelDefinition[];
+  activePanel: PanelId | null;
+  onSelectPanel: (panel: PanelId) => void;
   onOpenCalculator: () => void;
   onInsertTemplate: () => void;
   onFormatDocument: () => void;
@@ -30,7 +28,7 @@ const RibbonGroup = ({ title, children }: { title: string; children: ReactNode }
 type RibbonTab = 'ai' | 'calculator' | 'docs';
 
 export default function ActionPanel({
-  hasText, isBusy, isAnalyzing, isVerifying, isCheckingEvidence, isExtractingParties, activePanel,
+  hasText, isBusy, panels, activePanel,
   onSelectPanel, onOpenCalculator, onInsertTemplate, onFormatDocument,
   error, children,
 }: Props) {
@@ -44,6 +42,8 @@ export default function ActionPanel({
         ? 'bg-white text-gray-900 border-gray-200'
         : 'bg-gray-100 text-gray-500 border-transparent hover:text-gray-700'
     }`;
+  const reviewPanels = panels.filter(panel => panel.group === 'review');
+  const checkPanels = panels.filter(panel => panel.group === 'check');
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -58,31 +58,37 @@ export default function ActionPanel({
           {activeTab === 'ai' && (
             <div className="flex items-center gap-2 flex-wrap">
               <RibbonGroup title="审查/核定">
-                <button onClick={() => onSelectPanel('analysis')}
-                  className={ribbonBtn(activePanel === 'analysis' || isAnalyzing, 'text-indigo-600 bg-indigo-50')}>
-                  {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                  <span>文本审查</span>
-                </button>
-
-                <button onClick={() => onSelectPanel('claims')}
-                  className={ribbonBtn(activePanel === 'claims' || isVerifying, 'text-teal-600 bg-teal-50')}>
-                  {isVerifying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calculator className="w-4 h-4" />}
-                  <span>索赔核定</span>
-                </button>
+                {reviewPanels.map(panel => {
+                  const isActive = activePanel === panel.id || panel.isLoading;
+                  const Icon = panel.icon;
+                  return (
+                    <button
+                      key={panel.id}
+                      onClick={() => onSelectPanel(panel.id)}
+                      className={ribbonBtn(isActive, panel.activeClassName)}
+                    >
+                      {panel.isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Icon className="w-4 h-4" />}
+                      <span>{panel.label}</span>
+                    </button>
+                  );
+                })}
               </RibbonGroup>
 
               <RibbonGroup title="核查/提取">
-                <button onClick={() => onSelectPanel('evidence')}
-                  className={ribbonBtn(activePanel === 'evidence' || isCheckingEvidence, 'text-violet-600 bg-violet-50')}>
-                  {isCheckingEvidence ? <Loader2 className="w-4 h-4 animate-spin" /> : <ClipboardList className="w-4 h-4" />}
-                  <span>证据核查</span>
-                </button>
-
-                <button onClick={() => onSelectPanel('parties')}
-                  className={ribbonBtn(activePanel === 'parties' || isExtractingParties, 'text-sky-600 bg-sky-50')}>
-                  {isExtractingParties ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
-                  <span>具体信息提取</span>
-                </button>
+                {checkPanels.map(panel => {
+                  const isActive = activePanel === panel.id || panel.isLoading;
+                  const Icon = panel.icon;
+                  return (
+                    <button
+                      key={panel.id}
+                      onClick={() => onSelectPanel(panel.id)}
+                      className={ribbonBtn(isActive, panel.activeClassName)}
+                    >
+                      {panel.isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Icon className="w-4 h-4" />}
+                      <span>{panel.label}</span>
+                    </button>
+                  );
+                })}
               </RibbonGroup>
             </div>
           )}

@@ -18,14 +18,16 @@ import EvidenceResult from './components/EvidenceResult';
 import PartiesResult from './components/PartiesResult';
 import CompensationForm from './components/CompensationForm';
 import CompensationResult from './components/CompensationResult';
+import { buildPanels, type PanelId } from './panels/panels';
+import { getErrorMessage } from './utils/error';
 
 type View = 'main' | 'calculator';
-type ActivePanel = 'analysis' | 'claims' | 'evidence' | 'parties' | null;
 
 export default function App() {
   const [view, setView] = useState<View>('main');
-  const [activePanel, setActivePanel] = useState<ActivePanel>(null);
+  const [activePanel, setActivePanel] = useState<PanelId | null>(null);
   const [partyInsertError, setPartyInsertError] = useState('');
+  const [isInsertingParties, setIsInsertingParties] = useState(false);
 
   const reader = useDocumentReader();
   const analysis = useAnalysis();
@@ -34,15 +36,6 @@ export default function App() {
   const parties = usePartyExtraction();
   const calc = useCompensationCalculator();
 
-  const activeError = activePanel === 'analysis'
-    ? analysis.error
-    : activePanel === 'claims'
-      ? claims.error
-      : activePanel === 'evidence'
-        ? evidence.error
-        : activePanel === 'parties'
-          ? partyInsertError || parties.error
-          : '';
   const isBusy =
     analysis.isLoading ||
     claims.isVerifying ||
@@ -58,14 +51,87 @@ export default function App() {
     parties.extract();
   };
   const handleInsertParties = async () => {
-    if (!parties.result) return;
+    if (!parties.result || isInsertingParties) return;
     try {
+      setIsInsertingParties(true);
       setPartyInsertError('');
       await insertFullExtractionIntoTemplate(parties.result);
-    } catch (err: any) {
-      setPartyInsertError('写入要素式诉状失败: ' + err.message);
+    } catch (err: unknown) {
+      setPartyInsertError('写入要素式诉状失败: ' + getErrorMessage(err));
+    } finally {
+      setIsInsertingParties(false);
     }
   };
+
+  const panels = buildPanels([
+    {
+      id: 'analysis',
+      isLoading: analysis.isLoading,
+      error: analysis.error,
+      render: () => (
+        <AnalysisResult
+          result={analysis.analysisResult}
+          onInsert={analysis.insertToDocument}
+          onRerun={handleRerunAnalyze}
+          rerunDisabled={isBusy || !reader.selectedText}
+          insertDisabled={!analysis.analysisResult}
+        />
+      ),
+    },
+    {
+      id: 'claims',
+      isLoading: claims.isVerifying,
+      error: claims.error,
+      render: () => (
+        <ClaimsResult
+          results={claims.verificationResults}
+          totalSummary={claims.totalSummary}
+          fixingIndexes={claims.fixingIndexes}
+          fixedIndexes={claims.fixedIndexes}
+          fixAllStatus={claims.fixAllStatus}
+          fixAllMessage={claims.fixAllMessage}
+          onFixOne={claims.fixOne}
+          onFixAll={claims.fixAll}
+          onRerun={handleRerunClaims}
+          rerunDisabled={isBusy || !reader.selectedText}
+        />
+      ),
+    },
+    {
+      id: 'evidence',
+      isLoading: evidence.isChecking,
+      error: evidence.error,
+      render: () => (
+        <EvidenceResult
+          results={evidence.evidenceResults}
+          onRerun={handleRerunEvidence}
+          rerunDisabled={isBusy || !reader.selectedText}
+        />
+      ),
+    },
+    {
+      id: 'parties',
+      isLoading: parties.isExtracting,
+      error: partyInsertError || parties.error,
+      render: () => (
+        <PartiesResult
+          result={parties.result}
+          onInsert={handleInsertParties}
+          onRerun={handleRerunParties}
+          rerunDisabled={isBusy}
+          insertDisabled={isInsertingParties || !parties.result}
+        />
+      ),
+    },
+  ]);
+
+  const activeError = activePanel
+    ? panels.find(panel => panel.id === activePanel)?.error ?? ''
+    : '';
+
+  const activePanelRender = activePanel
+    ? panels.find(panel => panel.id === activePanel)?.render()
+    : null;
 
   return (
     <div className="h-screen flex flex-col font-sans bg-gray-50">
@@ -119,10 +185,9 @@ export default function App() {
           </div>
 
           <ActionPanel
-            hasText={!!reader.selectedText} isBusy={isBusy}
-            isAnalyzing={analysis.isLoading} isVerifying={claims.isVerifying}
-            isCheckingEvidence={evidence.isChecking}
-            isExtractingParties={parties.isExtracting}
+            hasText={!!reader.selectedText}
+            isBusy={isBusy}
+            panels={panels}
             activePanel={activePanel}
             onSelectPanel={setActivePanel}
             onOpenCalculator={() => setView('calculator')}
@@ -130,44 +195,7 @@ export default function App() {
             onFormatDocument={formatTraditionalComplaint}
             error={reader.error || activeError}
           >
-            {activePanel === 'analysis' && (
-              <AnalysisResult
-                result={analysis.analysisResult}
-                onInsert={analysis.insertToDocument}
-                onRerun={handleRerunAnalyze}
-                rerunDisabled={isBusy || !reader.selectedText}
-                insertDisabled={!analysis.analysisResult}
-              />
-            )}
-            {activePanel === 'claims' && (
-              <ClaimsResult
-                results={claims.verificationResults}
-                totalSummary={claims.totalSummary}
-                fixingIndexes={claims.fixingIndexes}
-                fixedIndexes={claims.fixedIndexes}
-                fixAllStatus={claims.fixAllStatus}
-                fixAllMessage={claims.fixAllMessage}
-                onFixOne={claims.fixOne}
-                onFixAll={claims.fixAll}
-                onRerun={handleRerunClaims}
-                rerunDisabled={isBusy || !reader.selectedText}
-              />
-            )}
-            {activePanel === 'evidence' && (
-              <EvidenceResult
-                results={evidence.evidenceResults}
-                onRerun={handleRerunEvidence}
-                rerunDisabled={isBusy || !reader.selectedText}
-              />
-            )}
-            {activePanel === 'parties' && (
-              <PartiesResult
-                result={parties.result}
-                onInsert={handleInsertParties}
-                onRerun={handleRerunParties}
-                rerunDisabled={isBusy}
-              />
-            )}
+            {activePanelRender}
           </ActionPanel>
         </div>
       )}

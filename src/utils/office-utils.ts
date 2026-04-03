@@ -45,48 +45,6 @@ function assertWordLoaded(): void {
 }
 
 /**
- * 在文档中搜索标签文本所在段落，并将其替换为新内容（原文照抄）
- */
-async function replaceBookmarkParagraph(
-  body: Word.Body,
-  context: Word.RequestContext,
-  searchLabel: string,
-  newText: string
-): Promise<void> {
-  const results = body.search(searchLabel, { matchCase: false, matchWholeWord: false });
-  results.load('items');
-  await context.sync();
-  if (results.items.length === 0) return;
-  const para = results.items[0].paragraphs.getFirst();
-  para.load('text');
-  await context.sync();
-  para.insertText(newText, Word.InsertLocation.replace);
-  await context.sync();
-}
-
-/**
- * 在文档中搜索标签文本所在段落，在其后插入多个段落（各段独立）
- */
-async function insertParagraphsAfterBookmark(
-  body: Word.Body,
-  context: Word.RequestContext,
-  searchLabel: string,
-  paragraphs: string[]
-): Promise<void> {
-  if (paragraphs.length === 0) return;
-  const results = body.search(searchLabel, { matchCase: false, matchWholeWord: false });
-  results.load('items');
-  await context.sync();
-  if (results.items.length === 0) return;
-  const anchorPara = results.items[0].paragraphs.getLast();
-  // 倒序插入保持顺序
-  for (let i = paragraphs.length - 1; i >= 0; i--) {
-    anchorPara.insertParagraph(paragraphs[i], Word.InsertLocation.after);
-  }
-  await context.sync();
-}
-
-/**
  * 将打包的起诉状模板插入当前 Word 文档开头
  */
 export async function insertTemplate(): Promise<void> {
@@ -169,8 +127,7 @@ export async function insertSuggestion(text: string): Promise<void> {
  */
 export async function replaceAmountInDocument(
   oldAmount: number,
-  newAmount: number,
-  _itemType: string
+  newAmount: number
 ): Promise<number> {
   assertWordLoaded();
 
@@ -306,7 +263,7 @@ export async function insertPartiesIntoTemplate(parties: PartyExtraction): Promi
     const findRowByLabel = (label: string) =>
       rows.items.find((row) => row.values.some((r) => r.some((cell) => typeof cell === 'string' && cell.includes(label))));
 
-    let plaintiffRow = findRowByLabel('原告（自然人）');
+    const plaintiffRow = findRowByLabel('原告（自然人）');
     let defendantNaturalRow = findRowByLabel('被告（自然人）');
     let insuranceRow = findRowByLabel('被告（保险公司）');
 
@@ -395,7 +352,7 @@ export async function insertPartiesIntoTemplate(parties: PartyExtraction): Promi
     }
 
     if (hasDefNatural && hasDefLegal) {
-      lastDefendantRow = await insertRowsAfter(lastDefendantRow, '被告（法人）', parties.defendantsLegal);
+      await insertRowsAfter(lastDefendantRow, '被告（法人）', parties.defendantsLegal);
     }
 
     // 插入多被告可能导致保险公司行引用偏移，刷新行引用
@@ -418,7 +375,7 @@ export async function insertPartiesIntoTemplate(parties: PartyExtraction): Promi
     }
 
     if (hasInsurance && hasThird) {
-      lastInsuranceRow = await insertRowsAfter(lastInsuranceRow, '第三人（法人）', parties.thirdPartyLegal);
+      await insertRowsAfter(lastInsuranceRow, '第三人（法人）', parties.thirdPartyLegal);
     }
 
     await context.sync();

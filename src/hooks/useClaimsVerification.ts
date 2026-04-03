@@ -3,6 +3,7 @@ import { extractClaimElementsAsJSON } from '../services/ai';
 import { verifyCompensationItem, calculateTotalSummary } from '../utils/compensation-rules';
 import { replaceAmountInDocument, replaceAllAmounts } from '../utils/office-utils';
 import type { ClaimVerificationResult } from '../utils/compensation-rules';
+import { getErrorMessage } from '../utils/error';
 
 export type FixAllStatus = 'idle' | 'loading' | 'done' | 'error';
 
@@ -44,8 +45,8 @@ export function useClaimsVerification() {
 
       setVerificationResults(results);
       setTotalSummary(summary);
-    } catch (err: any) {
-      setError('金额核对出错: ' + err.message);
+    } catch (err: unknown) {
+      setError('金额核对出错: ' + getErrorMessage(err));
     } finally {
       setIsVerifying(false);
     }
@@ -54,15 +55,15 @@ export function useClaimsVerification() {
   const fixOne = async (res: ClaimVerificationResult, idx: number) => {
     setFixingIndexes(prev => new Set(prev).add(idx));
     try {
-      const count = await replaceAmountInDocument(res.user_amount, res.theoretical_amount, res.type);
+      const count = await replaceAmountInDocument(res.user_amount, res.theoretical_amount);
       if (count === 0) {
         setError(`未在文档中找到「${res.type}」的金额 ${res.user_amount}，请确认原文格式或手动修正。`);
       } else {
         setFixedIndexes(prev => new Set(prev).add(idx));
         setError('');
       }
-    } catch (err: any) {
-      setError('写回失败: ' + err.message);
+    } catch (err: unknown) {
+      setError('写回失败: ' + getErrorMessage(err));
     } finally {
       setFixingIndexes(prev => {
         const s = new Set(prev);
@@ -97,9 +98,9 @@ export function useClaimsVerification() {
           ? `已修正 ${count} 处金额，新数值已在 Word 文档中标红加粗，请复核。`
           : '未在文档中找到对应金额，请确认原文选中范围是否包含索赔列表。'
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       setFixAllStatus('error');
-      setFixAllMessage('批量修正失败: ' + err.message);
+      setFixAllMessage('批量修正失败: ' + getErrorMessage(err));
     }
   };
 

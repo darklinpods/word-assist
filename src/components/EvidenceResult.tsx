@@ -1,5 +1,8 @@
 import { ClipboardList, CheckCircle2, AlertTriangle, XCircle, RefreshCw } from 'lucide-react';
 import type { EvidenceCheckResult } from '../utils/evidence-rules';
+import ResultActionButton from './common/ResultActionButton';
+import ResultCard from './common/ResultCard';
+import ResultEmpty from './common/ResultEmpty';
 
 interface Props {
   results: EvidenceCheckResult[] | null;
@@ -8,26 +11,26 @@ interface Props {
 }
 
 export default function EvidenceResult({ results, onRerun, rerunDisabled = false }: Props) {
+  const actions = (
+    <ResultActionButton onClick={onRerun} disabled={rerunDisabled} variant="gray">
+      <RefreshCw className="w-3.5 h-3.5 mr-1" />重新核查
+    </ResultActionButton>
+  );
+
   if (!results) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 leading-normal animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-sm font-semibold text-gray-800 flex items-center">
-            <ClipboardList className="w-4 h-4 mr-2 text-violet-600" />
-            证据清单核查报告
-          </h2>
-          <button
-            onClick={onRerun}
-            disabled={rerunDisabled}
-            className="px-3 py-1.5 flex items-center text-xs bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-md transition-colors font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RefreshCw className="w-3.5 h-3.5 mr-1" />重新核查
-          </button>
-        </div>
-        <div className="text-[13px] text-gray-500 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          暂无核查结果。点击“重新核查”开始。
-        </div>
-      </div>
+      <ResultCard
+        variant="card"
+        className="animate-in fade-in slide-in-from-bottom-2 duration-300"
+        title="证据清单核查报告"
+        icon={<ClipboardList className="w-4 h-4 mr-2 text-violet-600" />}
+        actions={actions}
+        titleTag="h2"
+        titleClassName="text-sm font-semibold text-gray-800"
+        headerClassName="mb-4"
+      >
+        <ResultEmpty>暂无核查结果。点击“重新核查”开始。</ResultEmpty>
+      </ResultCard>
     );
   }
   const presentCount = results.filter(r => r.status === 'present').length;
@@ -36,20 +39,16 @@ export default function EvidenceResult({ results, onRerun, rerunDisabled = false
   const total = results.length;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 leading-normal animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-sm font-semibold text-gray-800 flex items-center">
-          <ClipboardList className="w-4 h-4 mr-2 text-violet-600" />
-          证据清单核查报告
-        </h2>
-        <button
-          onClick={onRerun}
-          disabled={rerunDisabled}
-          className="px-3 py-1.5 flex items-center text-xs bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-md transition-colors font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <RefreshCw className="w-3.5 h-3.5 mr-1" />重新核查
-        </button>
-      </div>
+    <ResultCard
+      variant="card"
+      className="animate-in fade-in slide-in-from-bottom-2 duration-300"
+      title="证据清单核查报告"
+      icon={<ClipboardList className="w-4 h-4 mr-2 text-violet-600" />}
+      actions={actions}
+      titleTag="h2"
+      titleClassName="text-sm font-semibold text-gray-800"
+      headerClassName="mb-4"
+    >
 
       {/* 统计卡片 */}
       <div className="flex gap-2 mb-4">
@@ -133,6 +132,6 @@ export default function EvidenceResult({ results, onRerun, rerunDisabled = false
           );
         })}
       </div>
-    </div>
+    </ResultCard>
   );
 }

@@ -134,10 +134,11 @@ export function verifyCompensationItem(item: ClaimItemExtracted): ClaimVerificat
         break;
       }
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     calculationValid = false;
     theoreticalContent = item.user_amount;
-    reason = `无法解析标准公式参数 (${err.message})`;
+    const message = err instanceof Error ? err.message : String(err);
+    reason = `无法解析标准公式参数 (${message})`;
   }
 
   return {

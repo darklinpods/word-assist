@@ -1,11 +1,15 @@
 import { Users, RefreshCw, FileDown } from 'lucide-react';
 import type { PartyCheckItem, PartyExtraction, PartyRole } from '../types/parties';
+import ResultActionButton from './common/ResultActionButton';
+import ResultCard from './common/ResultCard';
+import ResultEmpty from './common/ResultEmpty';
 
 interface Props {
   result: PartyExtraction | null;
   onInsert: () => void;
   onRerun: () => void;
   rerunDisabled?: boolean;
+  insertDisabled?: boolean;
 }
 
 const renderCheck = (check?: PartyCheckItem) => {
@@ -83,40 +87,46 @@ const renderText = (title: string, text: string) => (
   </div>
 );
 
-export default function PartiesResult({ result, onInsert, onRerun, rerunDisabled = false }: Props) {
+export default function PartiesResult({
+  result,
+  onInsert,
+  onRerun,
+  rerunDisabled = false,
+  insertDisabled = false,
+}: Props) {
+  const insertButtonDisabled = !result || insertDisabled;
+  const actions = (
+    <div className="flex items-center gap-2">
+      <ResultActionButton onClick={onInsert} disabled={insertButtonDisabled} variant="blue">
+        <FileDown className="w-3.5 h-3.5 mr-1" />写入要素式诉状
+      </ResultActionButton>
+      <ResultActionButton onClick={onRerun} disabled={rerunDisabled} variant="gray">
+        <RefreshCw className="w-3.5 h-3.5 mr-1" />重新提取
+      </ResultActionButton>
+    </div>
+  );
+
   if (!result) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 leading-normal animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-sm font-semibold text-gray-800 flex items-center">
-            <Users className="w-4 h-4 mr-2 text-blue-600" />
+      <ResultCard
+        variant="card"
+        className="animate-in fade-in slide-in-from-bottom-2 duration-300"
+        title={
+          <>
             诉状信息提取
             <span className="ml-2 text-[10px] text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
               含完整度核查
             </span>
-          </h2>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onInsert}
-              disabled
-              className="px-3 py-1.5 flex items-center text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-md transition-colors font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <FileDown className="w-3.5 h-3.5 mr-1" />写入要素式诉状
-            </button>
-            <button
-              onClick={onRerun}
-              disabled={rerunDisabled}
-              className="px-3 py-1.5 flex items-center text-xs bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-md transition-colors font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <RefreshCw className="w-3.5 h-3.5 mr-1" />重新提取
-            </button>
-          </div>
-        </div>
-
-        <div className="text-[13px] text-gray-500 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          暂无提取结果。点击“重新提取”开始。
-        </div>
-      </div>
+          </>
+        }
+        icon={<Users className="w-4 h-4 mr-2 text-blue-600" />}
+        actions={actions}
+        titleTag="h2"
+        titleClassName="text-sm font-semibold text-gray-800"
+        headerClassName="mb-4"
+      >
+        <ResultEmpty>暂无提取结果。点击“重新提取”开始。</ResultEmpty>
+      </ResultCard>
     );
   }
   const total =
@@ -130,32 +140,23 @@ export default function PartiesResult({ result, onInsert, onRerun, rerunDisabled
   const issueCount = checks.length - okCount;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 leading-normal animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-sm font-semibold text-gray-800 flex items-center">
-          <Users className="w-4 h-4 mr-2 text-blue-600" />
+    <ResultCard
+      variant="card"
+      className="animate-in fade-in slide-in-from-bottom-2 duration-300"
+      title={
+        <>
           诉状信息提取
           <span className="ml-2 text-[10px] text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
             含完整度核查
           </span>
-        </h2>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onInsert}
-            className="px-3 py-1.5 flex items-center text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-md transition-colors font-medium cursor-pointer"
-          >
-            <FileDown className="w-3.5 h-3.5 mr-1" />写入要素式诉状
-          </button>
-          <button
-            onClick={onRerun}
-            disabled={rerunDisabled}
-            className="px-3 py-1.5 flex items-center text-xs bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-md transition-colors font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RefreshCw className="w-3.5 h-3.5 mr-1" />重新提取
-          </button>
-        </div>
-      </div>
-
+        </>
+      }
+      icon={<Users className="w-4 h-4 mr-2 text-blue-600" />}
+      actions={actions}
+      titleTag="h2"
+      titleClassName="text-sm font-semibold text-gray-800"
+      headerClassName="mb-4"
+    >
       <div className="text-xs text-gray-500 mb-4">
         共识别当事人 {total} 名
         {checks.length > 0 && (
@@ -178,6 +179,6 @@ export default function PartiesResult({ result, onInsert, onRerun, rerunDisabled
         {renderSection('其他情况及法律依据', result.otherFacts, checks)}
         {renderText('索赔清单', result.claimsList)}
       </div>
-    </div>
+    </ResultCard>
   );
 }

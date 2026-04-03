@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { getDocumentText, locateTextInDocument } from '../utils/office-utils';
 import { extractIdCardsFromText, validateIdCard, type IdCardCheckResult } from '../utils/id-card';
+import { getErrorMessage } from '../utils/error';
 
 export function useIdCardVerification() {
   const [results, setResults] = useState<IdCardCheckResult[] | null>(null);
@@ -23,8 +24,8 @@ export function useIdCardVerification() {
       const ids = extractIdCardsFromText(text);
       const checked = ids.map(validateIdCard);
       setResults(checked);
-    } catch (err: any) {
-      setError('身份证核查失败: ' + err.message);
+    } catch (err: unknown) {
+      setError('身份证核查失败: ' + getErrorMessage(err));
     } finally {
       setIsChecking(false);
     }
@@ -43,8 +44,8 @@ export function useIdCardVerification() {
       } else {
         setError('');
       }
-    } catch (err: any) {
-      setError('定位失败: ' + err.message);
+    } catch (err: unknown) {
+      setError('定位失败: ' + getErrorMessage(err));
     }
   };
 
