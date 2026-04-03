@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from 'react';
-import { Wand2, Calculator, ClipboardList, Loader2, ReceiptText, FileText, IdCard, Users, PaintbrushVertical } from 'lucide-react';
+import { Wand2, Calculator, ClipboardList, Loader2, ReceiptText, FileText, Users, PaintbrushVertical } from 'lucide-react';
 
 interface Props {
   hasText: boolean;
@@ -7,13 +7,11 @@ interface Props {
   isAnalyzing: boolean;
   isVerifying: boolean;
   isCheckingEvidence: boolean;
-  isCheckingIdCard: boolean;
   isExtractingParties: boolean;
   hasResults: boolean;
   onAnalyze: () => void;
   onVerifyClaims: () => void;
   onCheckEvidence: () => void;
-  onCheckIdCard: () => void;
   onExtractParties: () => void;
   onOpenCalculator: () => void;
   onInsertTemplate: () => void;
@@ -35,8 +33,8 @@ const RibbonGroup = ({ title, children }: { title: string; children: ReactNode }
 type RibbonTab = 'ai' | 'calculator' | 'docs';
 
 export default function ActionPanel({
-  hasText, isBusy, isAnalyzing, isVerifying, isCheckingEvidence, isCheckingIdCard, isExtractingParties, hasResults,
-  onAnalyze, onVerifyClaims, onCheckEvidence, onCheckIdCard, onExtractParties, onOpenCalculator, onInsertTemplate, onFormatDocument,
+  hasText, isBusy, isAnalyzing, isVerifying, isCheckingEvidence, isExtractingParties, hasResults,
+  onAnalyze, onVerifyClaims, onCheckEvidence, onExtractParties, onOpenCalculator, onInsertTemplate, onFormatDocument,
   error, children,
 }: Props) {
   const [activeTab, setActiveTab] = useState<RibbonTab>('ai');
@@ -80,16 +78,10 @@ export default function ActionPanel({
                   <span>证据核查</span>
                 </button>
 
-                <button onClick={onCheckIdCard} disabled={isCheckingIdCard || isBusy}
-                  className={ribbonBtn(isCheckingIdCard, 'text-blue-600 bg-blue-50')}>
-                  {isCheckingIdCard ? <Loader2 className="w-4 h-4 animate-spin" /> : <IdCard className="w-4 h-4" />}
-                  <span>身份证核查</span>
-                </button>
-
                 <button onClick={onExtractParties} disabled={isExtractingParties || isBusy}
                   className={ribbonBtn(isExtractingParties, 'text-sky-600 bg-sky-50')}>
                   {isExtractingParties ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
-                  <span>信息提取</span>
+                  <span>信息提取/核验</span>
                 </button>
               </RibbonGroup>
             </div>

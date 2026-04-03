@@ -7,7 +7,6 @@ import { useAnalysis } from './hooks/useAnalysis';
 import { useClaimsVerification } from './hooks/useClaimsVerification';
 import { useEvidenceCheck } from './hooks/useEvidenceCheck';
 import { useCompensationCalculator } from './hooks/useCompensationCalculator';
-import { useIdCardVerification } from './hooks/useIdCardVerification';
 import { usePartyExtraction } from './hooks/usePartyExtraction';
 
 import Header from './components/Header';
@@ -16,7 +15,6 @@ import ActionPanel from './components/ActionPanel';
 import AnalysisResult from './components/AnalysisResult';
 import ClaimsResult from './components/ClaimsResult';
 import EvidenceResult from './components/EvidenceResult';
-import IdCardResult from './components/IdCardResult';
 import PartiesResult from './components/PartiesResult';
 import CompensationForm from './components/CompensationForm';
 import CompensationResult from './components/CompensationResult';
@@ -31,12 +29,11 @@ export default function App() {
   const analysis = useAnalysis();
   const claims = useClaimsVerification();
   const evidence = useEvidenceCheck();
-  const idCard = useIdCardVerification();
   const parties = usePartyExtraction();
   const calc = useCompensationCalculator();
 
   const resetAll = () => {
-    analysis.reset(); claims.reset(); evidence.reset(); idCard.reset(); parties.reset(); setPartyInsertError('');
+    analysis.reset(); claims.reset(); evidence.reset(); parties.reset(); setPartyInsertError('');
   };
 
   const combinedError =
@@ -44,20 +41,17 @@ export default function App() {
     analysis.error ||
     claims.error ||
     evidence.error ||
-    idCard.error ||
     parties.error ||
     partyInsertError;
   const isBusy =
     analysis.isLoading ||
     claims.isVerifying ||
     evidence.isChecking ||
-    idCard.isChecking ||
     parties.isExtracting;
   const hasAnyResult = Boolean(
     analysis.analysisResult ||
     (claims.verificationResults && claims.totalSummary) ||
     evidence.evidenceResults ||
-    idCard.results ||
     parties.result
   );
 
@@ -77,11 +71,6 @@ export default function App() {
       resetAll(); evidence.check(reader.selectedText);
     }
   };
-  const handleCheckIdCard = () => {
-    if (!idCard.isChecking) {
-      resetAll(); idCard.checkDocument();
-    }
-  };
   const handleExtractParties = () => {
     if (!parties.isExtracting) {
       resetAll(); parties.extract();
@@ -92,7 +81,6 @@ export default function App() {
   const handleRerunAnalyze = () => { analysis.analyze(reader.selectedText); };
   const handleRerunClaims = () => { claims.verify(reader.selectedText); };
   const handleRerunEvidence = () => { evidence.check(reader.selectedText); };
-  const handleRerunIdCard = () => { idCard.checkDocument(); };
   const handleRerunParties = () => { parties.extract(); };
   const handleInsertParties = async () => {
     if (!parties.result) return;
@@ -158,11 +146,11 @@ export default function App() {
           <ActionPanel
             hasText={!!reader.selectedText} isBusy={isBusy}
             isAnalyzing={analysis.isLoading} isVerifying={claims.isVerifying}
-            isCheckingEvidence={evidence.isChecking} isCheckingIdCard={idCard.isChecking}
+            isCheckingEvidence={evidence.isChecking}
             isExtractingParties={parties.isExtracting}
             hasResults={hasAnyResult}
             onAnalyze={handleAnalyze} onVerifyClaims={handleVerifyClaims}
-            onCheckEvidence={handleCheckEvidence} onCheckIdCard={handleCheckIdCard}
+            onCheckEvidence={handleCheckEvidence}
             onExtractParties={handleExtractParties}
             onOpenCalculator={() => setView('calculator')}
             onInsertTemplate={insertTemplate}
@@ -179,13 +167,6 @@ export default function App() {
               />
             )}
             {evidence.evidenceResults && <EvidenceResult results={evidence.evidenceResults} onRerun={handleRerunEvidence} />}
-            {idCard.results && (
-              <IdCardResult
-                results={idCard.results}
-                onRerun={handleRerunIdCard}
-                onLocate={idCard.locateInDocument}
-              />
-            )}
             {parties.result && (
               <PartiesResult
                 result={parties.result}
