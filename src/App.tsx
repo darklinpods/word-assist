@@ -20,9 +20,11 @@ import CompensationForm from './components/CompensationForm';
 import CompensationResult from './components/CompensationResult';
 
 type View = 'main' | 'calculator';
+type ActivePanel = 'analysis' | 'claims' | 'evidence' | 'parties' | null;
 
 export default function App() {
   const [view, setView] = useState<View>('main');
+  const [activePanel, setActivePanel] = useState<ActivePanel>(null);
   const [partyInsertError, setPartyInsertError] = useState('');
 
   const reader = useDocumentReader();
@@ -32,56 +34,29 @@ export default function App() {
   const parties = usePartyExtraction();
   const calc = useCompensationCalculator();
 
-  const resetAll = () => {
-    analysis.reset(); claims.reset(); evidence.reset(); parties.reset(); setPartyInsertError('');
-  };
-
-  const combinedError =
-    reader.error ||
-    analysis.error ||
-    claims.error ||
-    evidence.error ||
-    parties.error ||
-    partyInsertError;
+  const activeError = activePanel === 'analysis'
+    ? analysis.error
+    : activePanel === 'claims'
+      ? claims.error
+      : activePanel === 'evidence'
+        ? evidence.error
+        : activePanel === 'parties'
+          ? partyInsertError || parties.error
+          : '';
   const isBusy =
     analysis.isLoading ||
     claims.isVerifying ||
     evidence.isChecking ||
     parties.isExtracting;
-  const hasAnyResult = Boolean(
-    analysis.analysisResult ||
-    (claims.verificationResults && claims.totalSummary) ||
-    evidence.evidenceResults ||
-    parties.result
-  );
-
-  // 顶部按钮：只切换面板，首次切入且无结果时自动触发
-  const handleAnalyze = () => {
-    if (!analysis.analysisResult && !analysis.isLoading) {
-      resetAll(); analysis.analyze(reader.selectedText);
-    }
-  };
-  const handleVerifyClaims = () => {
-    if (!claims.verificationResults && !claims.isVerifying) {
-      resetAll(); claims.verify(reader.selectedText);
-    }
-  };
-  const handleCheckEvidence = () => {
-    if (!evidence.evidenceResults && !evidence.isChecking) {
-      resetAll(); evidence.check(reader.selectedText);
-    }
-  };
-  const handleExtractParties = () => {
-    if (!parties.isExtracting) {
-      resetAll(); parties.extract();
-    }
-  };
 
   // 结果区内"重新执行"按钮
   const handleRerunAnalyze = () => { analysis.analyze(reader.selectedText); };
   const handleRerunClaims = () => { claims.verify(reader.selectedText); };
   const handleRerunEvidence = () => { evidence.check(reader.selectedText); };
-  const handleRerunParties = () => { parties.extract(); };
+  const handleRerunParties = () => {
+    setPartyInsertError('');
+    parties.extract();
+  };
   const handleInsertParties = async () => {
     if (!parties.result) return;
     try {
@@ -148,30 +123,49 @@ export default function App() {
             isAnalyzing={analysis.isLoading} isVerifying={claims.isVerifying}
             isCheckingEvidence={evidence.isChecking}
             isExtractingParties={parties.isExtracting}
-            hasResults={hasAnyResult}
-            onAnalyze={handleAnalyze} onVerifyClaims={handleVerifyClaims}
-            onCheckEvidence={handleCheckEvidence}
-            onExtractParties={handleExtractParties}
+            activePanel={activePanel}
+            onSelectPanel={setActivePanel}
             onOpenCalculator={() => setView('calculator')}
             onInsertTemplate={insertTemplate}
             onFormatDocument={formatTraditionalComplaint}
-            error={combinedError}
+            error={reader.error || activeError}
           >
-            <AnalysisResult result={analysis.analysisResult} onInsert={analysis.insertToDocument} onRerun={handleRerunAnalyze} />
-            {claims.verificationResults && claims.totalSummary && (
-              <ClaimsResult
-                results={claims.verificationResults} totalSummary={claims.totalSummary}
-                fixingIndexes={claims.fixingIndexes} fixedIndexes={claims.fixedIndexes}
-                fixAllStatus={claims.fixAllStatus} fixAllMessage={claims.fixAllMessage}
-                onFixOne={claims.fixOne} onFixAll={claims.fixAll} onRerun={handleRerunClaims}
+            {activePanel === 'analysis' && (
+              <AnalysisResult
+                result={analysis.analysisResult}
+                onInsert={analysis.insertToDocument}
+                onRerun={handleRerunAnalyze}
+                rerunDisabled={isBusy || !reader.selectedText}
+                insertDisabled={!analysis.analysisResult}
               />
             )}
-            {evidence.evidenceResults && <EvidenceResult results={evidence.evidenceResults} onRerun={handleRerunEvidence} />}
-            {parties.result && (
+            {activePanel === 'claims' && (
+              <ClaimsResult
+                results={claims.verificationResults}
+                totalSummary={claims.totalSummary}
+                fixingIndexes={claims.fixingIndexes}
+                fixedIndexes={claims.fixedIndexes}
+                fixAllStatus={claims.fixAllStatus}
+                fixAllMessage={claims.fixAllMessage}
+                onFixOne={claims.fixOne}
+                onFixAll={claims.fixAll}
+                onRerun={handleRerunClaims}
+                rerunDisabled={isBusy || !reader.selectedText}
+              />
+            )}
+            {activePanel === 'evidence' && (
+              <EvidenceResult
+                results={evidence.evidenceResults}
+                onRerun={handleRerunEvidence}
+                rerunDisabled={isBusy || !reader.selectedText}
+              />
+            )}
+            {activePanel === 'parties' && (
               <PartiesResult
                 result={parties.result}
                 onInsert={handleInsertParties}
                 onRerun={handleRerunParties}
+                rerunDisabled={isBusy}
               />
             )}
           </ActionPanel>

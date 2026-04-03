@@ -3,8 +3,8 @@ import type { ClaimVerificationResult } from '../utils/compensation-rules';
 import type { FixAllStatus } from '../hooks/useClaimsVerification';
 
 interface Props {
-  results: ClaimVerificationResult[];
-  totalSummary: { userTotal: number; correctTotal: number; hasMismatch: boolean };
+  results: ClaimVerificationResult[] | null;
+  totalSummary: { userTotal: number; correctTotal: number; hasMismatch: boolean } | null;
   fixingIndexes: Set<number>;
   fixedIndexes: Set<number>;
   fixAllStatus: FixAllStatus;
@@ -12,12 +12,36 @@ interface Props {
   onFixOne: (res: ClaimVerificationResult, idx: number) => void;
   onFixAll: () => void;
   onRerun: () => void;
+  rerunDisabled?: boolean;
 }
 
 export default function ClaimsResult({
   results, totalSummary, fixingIndexes, fixedIndexes,
-  fixAllStatus, fixAllMessage, onFixOne, onFixAll, onRerun,
+  fixAllStatus, fixAllMessage, onFixOne, onFixAll, onRerun, rerunDisabled = false,
 }: Props) {
+  if (!results || !totalSummary) {
+    return (
+      <div className="mt-5 border-t border-gray-100 pt-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-[15px] font-bold text-gray-800 flex items-center">
+            <Calculator className="w-4 h-4 mr-1.5 text-teal-600" />
+            索赔金额核算对账单
+          </h3>
+          <button
+            onClick={onRerun}
+            disabled={rerunDisabled}
+            className="px-3 py-1.5 flex items-center text-xs bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-md transition-colors font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className="w-3.5 h-3.5 mr-1" />重新核算
+          </button>
+        </div>
+        <div className="text-[13px] text-gray-500 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+          暂无核算结果。点击“重新核算”开始。
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-5 border-t border-gray-100 pt-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
       <div className="flex justify-between items-center mb-4">
@@ -25,7 +49,11 @@ export default function ClaimsResult({
           <Calculator className="w-4 h-4 mr-1.5 text-teal-600" />
           索赔金额核算对账单
         </h3>
-        <button onClick={onRerun} className="px-3 py-1.5 flex items-center text-xs bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-md transition-colors font-medium cursor-pointer">
+        <button
+          onClick={onRerun}
+          disabled={rerunDisabled}
+          className="px-3 py-1.5 flex items-center text-xs bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-md transition-colors font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           <RefreshCw className="w-3.5 h-3.5 mr-1" />重新核算
         </button>
       </div>

@@ -8,11 +8,8 @@ interface Props {
   isVerifying: boolean;
   isCheckingEvidence: boolean;
   isExtractingParties: boolean;
-  hasResults: boolean;
-  onAnalyze: () => void;
-  onVerifyClaims: () => void;
-  onCheckEvidence: () => void;
-  onExtractParties: () => void;
+  activePanel: 'analysis' | 'claims' | 'evidence' | 'parties' | null;
+  onSelectPanel: (panel: 'analysis' | 'claims' | 'evidence' | 'parties') => void;
   onOpenCalculator: () => void;
   onInsertTemplate: () => void;
   onFormatDocument: () => void;
@@ -33,11 +30,14 @@ const RibbonGroup = ({ title, children }: { title: string; children: ReactNode }
 type RibbonTab = 'ai' | 'calculator' | 'docs';
 
 export default function ActionPanel({
-  hasText, isBusy, isAnalyzing, isVerifying, isCheckingEvidence, isExtractingParties, hasResults,
-  onAnalyze, onVerifyClaims, onCheckEvidence, onExtractParties, onOpenCalculator, onInsertTemplate, onFormatDocument,
+  hasText, isBusy, isAnalyzing, isVerifying, isCheckingEvidence, isExtractingParties, activePanel,
+  onSelectPanel, onOpenCalculator, onInsertTemplate, onFormatDocument,
   error, children,
 }: Props) {
   const [activeTab, setActiveTab] = useState<RibbonTab>('ai');
+  const hasChildren = Array.isArray(children)
+    ? children.some(child => child !== null && child !== false)
+    : children !== null && children !== undefined && children !== false;
   const tabBtn = (tab: RibbonTab) =>
     `px-3 py-1.5 text-[11px] font-semibold rounded-t-md border border-b-0 transition-colors ${
       activeTab === tab
@@ -58,30 +58,30 @@ export default function ActionPanel({
           {activeTab === 'ai' && (
             <div className="flex items-center gap-2 flex-wrap">
               <RibbonGroup title="审查/核定">
-                <button onClick={onAnalyze} disabled={!hasText || isBusy}
-                  className={ribbonBtn(isAnalyzing, 'text-indigo-600 bg-indigo-50')}>
+                <button onClick={() => onSelectPanel('analysis')}
+                  className={ribbonBtn(activePanel === 'analysis' || isAnalyzing, 'text-indigo-600 bg-indigo-50')}>
                   {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
                   <span>文本审查</span>
                 </button>
 
-                <button onClick={onVerifyClaims} disabled={!hasText || isBusy}
-                  className={ribbonBtn(isVerifying, 'text-teal-600 bg-teal-50')}>
+                <button onClick={() => onSelectPanel('claims')}
+                  className={ribbonBtn(activePanel === 'claims' || isVerifying, 'text-teal-600 bg-teal-50')}>
                   {isVerifying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calculator className="w-4 h-4" />}
                   <span>索赔核定</span>
                 </button>
               </RibbonGroup>
 
               <RibbonGroup title="核查/提取">
-                <button onClick={onCheckEvidence} disabled={!hasText || isBusy}
-                  className={ribbonBtn(isCheckingEvidence, 'text-violet-600 bg-violet-50')}>
+                <button onClick={() => onSelectPanel('evidence')}
+                  className={ribbonBtn(activePanel === 'evidence' || isCheckingEvidence, 'text-violet-600 bg-violet-50')}>
                   {isCheckingEvidence ? <Loader2 className="w-4 h-4 animate-spin" /> : <ClipboardList className="w-4 h-4" />}
                   <span>证据核查</span>
                 </button>
 
-                <button onClick={onExtractParties} disabled={isExtractingParties || isBusy}
-                  className={ribbonBtn(isExtractingParties, 'text-sky-600 bg-sky-50')}>
+                <button onClick={() => onSelectPanel('parties')}
+                  className={ribbonBtn(activePanel === 'parties' || isExtractingParties, 'text-sky-600 bg-sky-50')}>
                   {isExtractingParties ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
-                  <span>信息提取/核验</span>
+                  <span>具体信息提取</span>
                 </button>
               </RibbonGroup>
             </div>
@@ -124,7 +124,7 @@ export default function ActionPanel({
         {error && (
           <div className="text-red-500 text-sm bg-red-50 p-2.5 rounded-md border border-red-100">{error}</div>
         )}
-        {!error && !hasResults && !isBusy && (
+        {!error && !hasChildren && !isBusy && (
           <div className="bg-white rounded-xl border border-gray-200 p-4 text-sm text-gray-600">
             <div className="font-semibold text-gray-800 mb-1.5">开始处理</div>
             {!hasText ? (
