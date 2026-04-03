@@ -15,7 +15,6 @@ import { getErrorMessage } from '../utils/error';
 const DEFAULT_PARAMS: CaseParams = {
   province: '湖北省',
   year: '2026',
-  residentType: 'urban',
   caseType: 'injury',
   victimAge: 40,
   disabilityLevel: 10,
@@ -122,7 +121,6 @@ export function useCompensationCalculator() {
       await exportCompensationTable(result.items, {
         province: params.province,
         year: params.year,
-        residentType: params.residentType,
         caseType: params.caseType,
         total: result.total,
       });

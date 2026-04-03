@@ -639,7 +639,6 @@ export interface CompensationExportItem {
 export interface CompensationExportMeta {
   province: string;
   year: string;
-  residentType: 'urban' | 'rural';
   caseType: 'injury' | 'death';
   total: number;
 }
@@ -655,7 +654,6 @@ export async function exportCompensationTable(
   assertWordLoaded();
 
   const enabledItems = items.filter(i => i.enabled);
-  const residentLabel = meta.residentType === 'urban' ? '城镇居民' : '农村居民';
   const caseLabel = meta.caseType === 'death' ? '死亡' : '伤残';
 
   return Word.run(async (context) => {
@@ -670,7 +668,7 @@ export async function exportCompensationTable(
 
     // ── 适用标准说明 ──
     const meta1 = body.insertParagraph(
-      `适用标准：${meta.province} ${meta.year} 年 ${residentLabel} | 案件类型：${caseLabel}`,
+      `适用标准：${meta.province} ${meta.year} 年居民标准 | 案件类型：${caseLabel}`,
       Word.InsertLocation.end
     );
     meta1.font.color = '#555555';

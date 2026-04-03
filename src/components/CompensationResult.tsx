@@ -4,7 +4,7 @@ import type { CaseParams } from '../utils/compensation-calculator';
 
 interface Props {
   result: CalcResult;
-  params: Pick<CaseParams, 'province' | 'year' | 'residentType' | 'caseType'>;
+  params: Pick<CaseParams, 'province' | 'year'>;
   isExporting: boolean;
   onExport: () => void;
 }
@@ -12,7 +12,6 @@ interface Props {
 export default function CompensationResult({ result, params, isExporting, onExport }: Props) {
   const { items, total } = result;
   const enabledItems = items.filter(i => i.enabled);
-  const residentLabel = params.residentType === 'urban' ? '城镇居民' : '农村居民';
 
   return (
     <div className="mt-4 border-t border-gray-100 pt-4 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -20,7 +19,7 @@ export default function CompensationResult({ result, params, isExporting, onExpo
       <div className="flex items-center justify-between">
         <h3 className="text-[14px] font-bold text-gray-800">📊 计算结果</h3>
         <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-          {params.province} · {params.year} · {residentLabel}
+          {params.province} · {params.year}
         </span>
       </div>
 

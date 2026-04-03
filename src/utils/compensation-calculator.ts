@@ -7,10 +7,8 @@ import standardsJson from '../data/compensation-standards.json';
 // ─── 数据类型 ────────────────────────────────────────────────
 
 export interface ProvinceYearStandards {
-  urban_disposable_income: number;
-  rural_disposable_income: number;
-  urban_consumption_expenditure: number;
-  rural_consumption_expenditure: number;
+  resident_disposable_income: number;
+  resident_consumption_expenditure: number;
   /** 服务业年平均工资，用于误工费省标准 & 丧葬费 */
   service_industry_annual_wage: number;
   /** 护工日标准（元/天）= service_industry_annual_wage / 365 */
@@ -19,7 +17,6 @@ export interface ProvinceYearStandards {
   nutrition_daily: number;
 }
 
-export type ResidentType = 'urban' | 'rural';
 export type CaseType = 'injury' | 'death';
 export type LostWageMode = 'actual' | 'standard' | 'none';
 
@@ -34,7 +31,6 @@ export interface Dependent {
 export interface CaseParams {
   province: string;
   year: string;
-  residentType: ResidentType;
   caseType: CaseType;
 
   // 伤者
@@ -127,15 +123,8 @@ export function calculateCompensation(
   params: CaseParams,
   standards: ProvinceYearStandards
 ): CalcResult {
-  const residentLabel = params.residentType === 'urban' ? '城镇' : '农村';
-  const baseIncome =
-    params.residentType === 'urban'
-      ? standards.urban_disposable_income
-      : standards.rural_disposable_income;
-  const baseConsumption =
-    params.residentType === 'urban'
-      ? standards.urban_consumption_expenditure
-      : standards.rural_consumption_expenditure;
+  const baseIncome = standards.resident_disposable_income;
+  const baseConsumption = standards.resident_consumption_expenditure;
   const compYears = calcVictimCompensationYears(params.victimAge, params.compensationYearsOverride);
   const items: CalcLineItem[] = [];
 
@@ -147,7 +136,7 @@ export function calculateCompensation(
       type: '死亡赔偿金',
       amount,
       formula: `${baseIncome} 元/年 × ${compYears} 年`,
-      note: `${residentLabel}居民人均可支配收入（${params.province} ${params.year}）`,
+      note: `居民人均可支配收入（${params.province} ${params.year}）`,
       enabled: true,
     });
   } else if (params.disabilityLevel !== null) {
@@ -158,7 +147,7 @@ export function calculateCompensation(
       type: '残疾赔偿金',
       amount,
       formula: `${baseIncome} 元/年 × ${(coef * 100).toFixed(0)}% × ${compYears} 年`,
-      note: `${residentLabel}居民人均可支配收入，${params.disabilityLevel}级伤残（系数 ${(coef * 100).toFixed(0)}%）`,
+      note: `居民人均可支配收入，${params.disabilityLevel}级伤残（系数 ${(coef * 100).toFixed(0)}%）`,
       enabled: true,
     });
   } else {
@@ -293,7 +282,7 @@ export function calculateCompensation(
       type: '被扶养人生活费',
       amount: totalAmount,
       formula: formulaStr,
-      note: `${residentLabel}居民人均消费性支出，共 ${params.dependents.length} 名被扶养人`,
+      note: `居民人均消费性支出，共 ${params.dependents.length} 名被扶养人`,
       enabled: true,
     });
   } else {

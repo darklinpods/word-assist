@@ -164,31 +164,18 @@ export default function CompensationForm({
           </select>
         </div>
 
-        {/* 年份 + 居民类型 */}
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <Label>适用年份</Label>
-            <select
-              value={params.year}
-              onChange={e => onUpdate('year', e.target.value)}
-              className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm text-gray-800 bg-white focus:outline-none focus:border-indigo-400"
-            >
-              {availableYears.map(y => (
-                <option key={y}>{y}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <Label>居民类型</Label>
-            <RadioGroup
-              value={params.residentType}
-              options={[
-                { value: 'urban', label: '城镇' },
-                { value: 'rural', label: '农村' },
-              ]}
-              onChange={v => onUpdate('residentType', v)}
-            />
-          </div>
+        {/* 年份 */}
+        <div>
+          <Label>适用年份</Label>
+          <select
+            value={params.year}
+            onChange={e => onUpdate('year', e.target.value)}
+            className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm text-gray-800 bg-white focus:outline-none focus:border-indigo-400"
+          >
+            {availableYears.map(y => (
+              <option key={y}>{y}</option>
+            ))}
+          </select>
         </div>
 
         {/* 案件类型 */}

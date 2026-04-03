@@ -24,10 +24,10 @@ export interface ClaimVerificationResult {
 
 // 模拟的法定标准（实务中这部分可扩展为后端 API 拉取及省份年份选择）
 export const BASE_STANDARDS = {
-  // 假设：2026年 湖北省城镇居民人均可支配收入（用于残疾赔偿金等）
-  URBAN_DISPOSABLE_INCOME_2026_HUBEI: 49164,
+  // 假设：2026年 湖北省居民人均可支配收入（用于残疾赔偿金等）
+  RESIDENT_DISPOSABLE_INCOME_2026_HUBEI: 49164,
   // 假设：2026年 湖北省居民人均消费性支出标准（用于被扶养人生活费等）
-  URBAN_CONSUMPTION_EXPENDITURE_2026_HUBEI: 32473,
+  RESIDENT_CONSUMPTION_EXPENDITURE_2026_HUBEI: 32473,
   // 假设：护工行业平均薪酬（元/年）
   NURSING_FEE_YEARLY_2026_HUBEI: 52532,
 };
@@ -44,7 +44,7 @@ export function verifyCompensationItem(item: ClaimItemExtracted): ClaimVerificat
   try {
     switch (item.type) {
       case '残疾赔偿金': {
-        const base = BASE_STANDARDS.URBAN_DISPOSABLE_INCOME_2026_HUBEI;
+        const base = BASE_STANDARDS.RESIDENT_DISPOSABLE_INCOME_2026_HUBEI;
         const level = item.disability_level || 10; // 默认十级
         const years = item.years_claimed || 20; // 默认20年
         // 赔偿金公式：基数 * (11 - 伤残等级) * 10% * 赔偿年限

@@ -3,20 +3,16 @@
   "provinces": {
     "湖北省": {
       "2026": {
-        "urban_disposable_income": 49164,
-        "rural_disposable_income": 22800,
-        "urban_consumption_expenditure": 32473,
-        "rural_consumption_expenditure": 18500,
+        "resident_disposable_income": 49164,
+        "resident_consumption_expenditure": 32473,
         "service_industry_annual_wage": 52532,
         "nursing_daily_rate": 143.9,
         "meal_allowance_daily": 30,
         "nutrition_daily": 30
       },
       "2025": {
-        "urban_disposable_income": 46520,
-        "rural_disposable_income": 21600,
-        "urban_consumption_expenditure": 30800,
-        "rural_consumption_expenditure": 17600,
+        "resident_disposable_income": 46520,
+        "resident_consumption_expenditure": 30800,
         "service_industry_annual_wage": 50000,
         "nursing_daily_rate": 136.9,
         "meal_allowance_daily": 30,
