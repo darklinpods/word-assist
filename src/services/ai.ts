@@ -44,6 +44,11 @@ function stripMarkdownFence(content: string): string {
     .trim();
 }
 
+/**
+ * 分析法律文本
+ * @param text 要分析的文本
+ * @returns 分析结果
+ */
 export async function analyzeLegalText(text: string): Promise<string> {
   if (!text || text.trim() === '') {
     return '请先选中诉状中的部分文字，然后再点击分析。';
