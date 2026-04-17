@@ -20,6 +20,7 @@ import CompensationForm from './components/CompensationForm';
 import CompensationResult from './components/CompensationResult';
 import { buildPanels, type PanelId } from './panels/panels';
 import { getErrorMessage } from './utils/error';
+import { useOfficeEnvironment } from './utils/office-env';
 
 type View = 'main' | 'calculator';
 
@@ -35,6 +36,7 @@ export default function App() {
   const evidence = useEvidenceCheck();
   const parties = usePartyExtraction();
   const calc = useCompensationCalculator();
+  const officeEnv = useOfficeEnvironment();
 
   const isBusy =
     analysis.isLoading ||
@@ -164,7 +166,7 @@ export default function App() {
         </div>
       ) : (
         <div className="flex-1 flex flex-col min-h-0">
-          <OfficeWarning />
+          <OfficeWarning officeEnv={officeEnv} />
 
           <div className="px-3 pt-3">
             <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-600">
@@ -175,7 +177,9 @@ export default function App() {
           {/* 读取文档工具栏 */}
           <div className="flex items-center gap-2 px-3 py-2 bg-white border-b border-gray-200">
             <button onClick={reader.readSelection}
-              className="relative group flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors cursor-pointer">
+              disabled={!officeEnv.isOfficeReady}
+              title={officeEnv.isOfficeReady ? '从当前 Word 选区读取文本' : officeEnv.message}
+              className="relative group flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed disabled:text-gray-400 disabled:bg-gray-100 disabled:border-gray-200 disabled:hover:bg-gray-100">
               <FileText className="w-4 h-4" />
               提取选中段落
             </button>

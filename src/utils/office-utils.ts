@@ -1,4 +1,5 @@
 import type { PartyExtraction } from '../types/parties';
+import { getOfficeActionError } from './office-env';
 
 const HIGHLIGHT_COLOR = '#c0392b';
 const TEMPLATE_PATH = '/templates/complaint-template.docx';
@@ -40,7 +41,7 @@ async function getTemplateBase64(): Promise<string> {
 
 function assertWordLoaded(): void {
   if (typeof Word === 'undefined') {
-    throw new Error('Word.js API 未加载，请在 Microsoft Word 侧边栏中运行此插件。');
+    throw new Error(getOfficeActionError('word-document'));
   }
 }
 
@@ -93,7 +94,7 @@ export async function locateTextInDocument(text: string): Promise<boolean> {
 export async function getSelectedText(): Promise<string> {
   return new Promise((resolve, reject) => {
     if (typeof Office === 'undefined') {
-      return reject(new Error('Office SDK is not loaded. Please run inside Microsoft Word.'));
+      return reject(new Error(getOfficeActionError('read-selection')));
     }
     Office.context.document.getSelectedDataAsync(Office.CoercionType.Text, (result) => {
       if (result.status === Office.AsyncResultStatus.Failed) {

@@ -121,14 +121,17 @@ VITE_ARK_MODEL_EP_ID=ep-xxxxxxxx
 npm run dev
 ```
 
-服务将在 `https://localhost:3000` 启动（需要 HTTPS，由 `vite-plugin-mkcert` 自动颁发本地证书）。
+服务将在 `https://localhost:3100` 启动。开发环境使用 `vite-plugin-mkcert` 生成并信任本地证书，更适合 Word 本地加载项调试。
+
+如果你第一次在这台 Mac 上运行，系统可能会弹出钥匙串或管理员授权提示，用于把本地开发证书加入信任链；允许后再重新打开 Word。
 
 ### 4. 在 Word 中加载插件
 
 1. 打开 Microsoft Word。
-2. 进入**插入 → 加载项 → 我的加载项 → 上传我的加载项**。
-3. 选择本项目根目录下的 `manifest.xml` 文件。
-4. 加载完成后，在 **开始** 选项卡的 **AI 工具** 组中点击 **启动法律助手** 即可打开侧边栏。
+2. 确认 `https://localhost:3100/index.html` 可以在浏览器中正常打开，且浏览器没有证书告警。
+3. 在 macOS 上进行本地开发时，优先将本项目根目录下的 `manifest.xml` 复制到 `~/Library/Containers/com.microsoft.Word/Data/Documents/wef/`。
+4. 完全退出并重新打开 Word。
+5. 在 **开始 / Home → 加载项 / Add-ins** 中打开插件；加载完成后，在 **开始** 选项卡的 **AI 工具** 组中点击 **启动法律助手** 即可打开侧边栏。
 
 ---
 
@@ -181,7 +184,7 @@ npm run build
 npm run preview
 ```
 
-生产部署时，将 `manifest.xml` 中所有 `https://localhost:3000` 替换为实际的生产域名（需要 HTTPS）。
+生产部署时，将 `manifest.xml` 中所有 `https://localhost:3100` 替换为实际的生产域名（需要 HTTPS）。
 
 ---
 
