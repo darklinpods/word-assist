@@ -8,21 +8,29 @@ import type { EvidenceRawResult } from '../utils/evidence-rules';
 import type { PartyExtraction } from '../types/parties';
 import { getErrorMessage } from '../utils/error';
 
-const API_KEY = import.meta.env.VITE_ARK_API_KEY;
-const MODEL_EP_ID = import.meta.env.VITE_ARK_MODEL_EP_ID;
+const API_KEY = String(import.meta.env.VITE_ARK_API_KEY ?? '').trim();
+const MODEL_EP_ID = String(import.meta.env.VITE_ARK_MODEL_EP_ID ?? '').trim();
 const API_URL = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
+
+function assertArkConfigured(): void {
+  if (!API_KEY) {
+    throw new Error('请先配置 VITE_ARK_API_KEY（建议写入 .env.local）。');
+  }
+  if (!MODEL_EP_ID || MODEL_EP_ID.includes('请在此处填入')) {
+    throw new Error('请先配置 VITE_ARK_MODEL_EP_ID（格式如 ep-xxxxxx）。');
+  }
+}
 
 function assertConfigured(text: string): void {
   if (!text || text.trim() === '') throw new Error('未选中任何文字。');
-  if (MODEL_EP_ID.includes('请在此处填入')) {
-    throw new Error('请先在 src/services/ai.ts 填入模型接入点 ID');
-  }
+  assertArkConfigured();
 }
 
 async function callArkAPI(
   messages: { role: string; content: string }[],
   temperature: number
 ): Promise<string> {
+  assertArkConfigured();
   const response = await fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
@@ -53,9 +61,7 @@ export async function analyzeLegalText(text: string): Promise<string> {
   if (!text || text.trim() === '') {
     return '请先选中诉状中的部分文字，然后再点击分析。';
   }
-  if (MODEL_EP_ID.includes('请在此处填入')) {
-    throw new Error('请先在 src/services/ai.ts 文件的第 9 行填入你的火山引擎模型接入点 ID (格式类似于 ep-xxxxxx)');
-  }
+  assertArkConfigured();
 
   const today = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
   const systemPrompt = `你是一名资深的中国执业律师，精通民商事诉讼业务。
