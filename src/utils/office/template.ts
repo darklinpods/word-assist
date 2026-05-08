@@ -1,6 +1,6 @@
 import { assertWordLoaded } from './environment';
 
-const TEMPLATE_PATH = '/templates/complaint-template.docx';
+const TEMPLATE_PATH = `${import.meta.env.BASE_URL}templates/complaint-template.docx`;
 
 let templateBase64Cache: string | null = null;
 let templateBase64Promise: Promise<string> | null = null;
@@ -16,7 +16,27 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 function getTemplateUrl(): string {
-  return new URL(TEMPLATE_PATH, window.location.href).href;
+  return new URL(TEMPLATE_PATH, window.location.origin).href;
+}
+
+function isZipBuffer(buffer: ArrayBuffer): boolean {
+  const bytes = new Uint8Array(buffer);
+  if (bytes.length < 4) return false;
+
+  return (
+    (bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04) ||
+    (bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x05 && bytes[3] === 0x06) ||
+    (bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x07 && bytes[3] === 0x08)
+  );
+}
+
+function getTextPreview(buffer: ArrayBuffer): string {
+  try {
+    const preview = new TextDecoder('utf-8').decode(buffer.slice(0, 200)).replace(/\s+/g, ' ').trim();
+    return preview;
+  } catch {
+    return '';
+  }
 }
 
 async function getTemplateBase64(): Promise<string> {
@@ -30,6 +50,11 @@ async function getTemplateBase64(): Promise<string> {
         throw new Error(`无法加载模板文件: ${response.status} ${response.statusText}`);
       }
       const buffer = await response.arrayBuffer();
+      if (!isZipBuffer(buffer)) {
+        const preview = getTextPreview(buffer);
+        const detail = preview ? `，返回内容预览: ${preview}` : '';
+        throw new Error(`模板文件不是有效的 Word 文档，请检查静态资源路径是否正确: ${getTemplateUrl()}${detail}`);
+      }
       const base64 = arrayBufferToBase64(buffer);
       templateBase64Cache = base64;
       return base64;
