@@ -28,6 +28,7 @@ export default function App() {
   const [view, setView] = useState<View>('main');
   const [activePanel, setActivePanel] = useState<PanelId | null>(null);
   const [partyInsertError, setPartyInsertError] = useState('');
+  const [templateInsertError, setTemplateInsertError] = useState('');
   const [isInsertingParties, setIsInsertingParties] = useState(false);
 
   const reader = useDocumentReader();
@@ -62,6 +63,15 @@ export default function App() {
       setPartyInsertError('写入要素式诉状失败: ' + getErrorMessage(err));
     } finally {
       setIsInsertingParties(false);
+    }
+  };
+
+  const handleInsertTemplate = async () => {
+    try {
+      setTemplateInsertError('');
+      await insertTemplate();
+    } catch (err: unknown) {
+      setTemplateInsertError('插入模板失败: ' + getErrorMessage(err));
     }
   };
 
@@ -131,6 +141,8 @@ export default function App() {
     ? panels.find(panel => panel.id === activePanel)?.error ?? ''
     : '';
 
+  const topError = templateInsertError || reader.error || activeError;
+
   const activePanelRender = activePanel
     ? panels.find(panel => panel.id === activePanel)?.render()
     : null;
@@ -195,9 +207,9 @@ export default function App() {
             activePanel={activePanel}
             onSelectPanel={setActivePanel}
             onOpenCalculator={() => setView('calculator')}
-            onInsertTemplate={insertTemplate}
+            onInsertTemplate={handleInsertTemplate}
             onFormatDocument={formatTraditionalComplaint}
-            error={reader.error || activeError}
+            error={topError}
           >
             {activePanelRender}
           </ActionPanel>

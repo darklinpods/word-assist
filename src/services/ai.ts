@@ -12,6 +12,39 @@ const API_KEY = String(import.meta.env.VITE_ARK_API_KEY ?? '').trim();
 const MODEL_EP_ID = String(import.meta.env.VITE_ARK_MODEL_EP_ID ?? '').trim();
 const API_URL = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
 
+function inferCompanyType(name: string): string {
+  return name.includes('股份') ? '股份有限公司' : '有限责任公司';
+}
+
+function normalizeLegalPartyRaw(raw: string): string {
+  const normalized = raw.replace(/\r\n/g, '\n');
+  const nameMatch = normalized.match(/名称\s*[:：]\s*(.*)/);
+  const companyName = nameMatch?.[1]?.trim() ?? '';
+
+  if (!companyName) return normalized;
+
+  const companyType = inferCompanyType(companyName);
+  const lines = normalized.split('\n');
+  const typeLineIndex = lines.findIndex((line) => /^\s*法人类型\s*[:：]/.test(line));
+
+  if (typeLineIndex >= 0) {
+    lines[typeLineIndex] = `法人类型：${companyType}`;
+    return lines.join('\n');
+  }
+
+  const legalRepLineIndex = lines.findIndex((line) => /^\s*法定代表人\s*[:：]/.test(line));
+  if (legalRepLineIndex >= 0) {
+    lines.splice(legalRepLineIndex, 0, `法人类型：${companyType}`);
+    return lines.join('\n');
+  }
+
+  return [...lines, `法人类型：${companyType}`].join('\n');
+}
+
+function normalizeLegalPartyList(items: string[]): string[] {
+  return items.map((item) => normalizeLegalPartyRaw(item));
+}
+
 function assertArkConfigured(): void {
   if (!API_KEY) {
     throw new Error('请先配置 VITE_ARK_API_KEY（建议写入 .env.local）。');
@@ -246,9 +279,9 @@ export async function extractPartiesFromText(text: string): Promise<PartyExtract
     return {
       plaintiffsNatural: parsed.plaintiffsNatural || [],
       defendantsNatural: parsed.defendantsNatural || [],
-      defendantsLegal: parsed.defendantsLegal || [],
-      defendantsInsurance: parsed.defendantsInsurance || [],
-      thirdPartyLegal: parsed.thirdPartyLegal || [],
+      defendantsLegal: normalizeLegalPartyList(parsed.defendantsLegal || []),
+      defendantsInsurance: normalizeLegalPartyList(parsed.defendantsInsurance || []),
+      thirdPartyLegal: normalizeLegalPartyList(parsed.thirdPartyLegal || []),
       claimsText: parsed.claimsText || '',
       accidentFacts: parsed.accidentFacts || '',
       liabilityDetermination: parsed.liabilityDetermination || '',

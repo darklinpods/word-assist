@@ -15,13 +15,17 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
+function getTemplateUrl(): string {
+  return new URL(TEMPLATE_PATH, window.location.href).href;
+}
+
 async function getTemplateBase64(): Promise<string> {
   if (templateBase64Cache) return templateBase64Cache;
   if (templateBase64Promise) return templateBase64Promise;
 
   templateBase64Promise = (async () => {
     try {
-      const response = await fetch(TEMPLATE_PATH);
+      const response = await fetch(getTemplateUrl());
       if (!response.ok) {
         throw new Error(`无法加载模板文件: ${response.status} ${response.statusText}`);
       }
