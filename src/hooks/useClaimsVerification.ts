@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { extractClaimElementsAsJSON } from '../services/ai';
 import { verifyCompensationItem, calculateTotalSummary } from '../utils/compensation-rules';
+import { getDefaultStandardsSelection } from '../utils/compensation-calculator';
 import { replaceAmountInDocument, replaceAllAmounts } from '../utils/office-utils';
 import type { ClaimVerificationResult } from '../utils/compensation-rules';
 import { getErrorMessage } from '../utils/error';
@@ -39,8 +40,13 @@ export function useClaimsVerification() {
       setFixAllStatus('idle');
       setFixAllMessage('');
 
+      const standardsSelection = getDefaultStandardsSelection();
+      if (!standardsSelection) {
+        throw new Error('未找到赔偿标准数据，请检查 src/data/compensation-standards.json');
+      }
+
       const elements = await extractClaimElementsAsJSON(text);
-      const results = elements.map(verifyCompensationItem);
+      const results = elements.map(item => verifyCompensationItem(item, standardsSelection));
       const summary = calculateTotalSummary(results);
 
       setVerificationResults(results);

@@ -79,6 +79,12 @@ export interface CalcResult {
   total: number;
 }
 
+export interface StandardsSelection {
+  province: string;
+  year: string;
+  standards: ProvinceYearStandards;
+}
+
 // ─── 标准数据访问 ────────────────────────────────────────────
 
 const data = standardsJson as {
@@ -97,6 +103,16 @@ export function getAvailableYears(province: string): string[] {
 
 export function getStandards(province: string, year: string): ProvinceYearStandards | null {
   return data.provinces?.[province]?.[year] ?? null;
+}
+
+export function getDefaultStandardsSelection(): StandardsSelection | null {
+  const province = getAvailableProvinces()[0];
+  if (!province) return null;
+  const year = getAvailableYears(province)[0];
+  if (!year) return null;
+  const standards = getStandards(province, year);
+  if (!standards) return null;
+  return { province, year, standards };
 }
 
 // ─── 年限推算 ─────────────────────────────────────────────────

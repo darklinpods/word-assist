@@ -1,3 +1,5 @@
+import type { ProvinceYearStandards } from './compensation-calculator';
+
 export interface ClaimItemExtracted {
   type: string; // 费用名目：如“残疾赔偿金”、“医疗费”、“误工费”、“护理费”、“被扶养人生活费”
   user_amount: number; // 文本中主张的金额
@@ -22,29 +24,29 @@ export interface ClaimVerificationResult {
   message: string;
 }
 
-// 模拟的法定标准（实务中这部分可扩展为后端 API 拉取及省份年份选择）
-export const BASE_STANDARDS = {
-  // 假设：2026年 湖北省居民人均可支配收入（用于残疾赔偿金等）
-  RESIDENT_DISPOSABLE_INCOME_2026_HUBEI: 49164,
-  // 假设：2026年 湖北省居民人均消费性支出标准（用于被扶养人生活费等）
-  RESIDENT_CONSUMPTION_EXPENDITURE_2026_HUBEI: 32473,
-  // 假设：护工行业平均薪酬（元/年）
-  NURSING_FEE_YEARLY_2026_HUBEI: 52532,
-};
+export interface ClaimVerificationContext {
+  province: string;
+  year: string;
+  standards: ProvinceYearStandards;
+}
 
 /**
  * 核心核算法规引擎
  * 接收 AI 从文书提取的结构化参数，比对自带的法定规则
  */
-export function verifyCompensationItem(item: ClaimItemExtracted): ClaimVerificationResult {
+export function verifyCompensationItem(
+  item: ClaimItemExtracted,
+  context: ClaimVerificationContext
+): ClaimVerificationResult {
   let theoreticalContent = 0;
   let calculationValid = false;
   let reason = '';
+  const standardLabel = `${context.province} ${context.year}`;
 
   try {
     switch (item.type) {
       case '残疾赔偿金': {
-        const base = BASE_STANDARDS.RESIDENT_DISPOSABLE_INCOME_2026_HUBEI;
+        const base = context.standards.resident_disposable_income;
         const level = item.disability_level || 10; // 默认十级
         const years = item.years_claimed || 20; // 默认20年
         // 赔偿金公式：基数 * (11 - 伤残等级) * 10% * 赔偿年限
@@ -54,9 +56,9 @@ export function verifyCompensationItem(item: ClaimItemExtracted): ClaimVerificat
         calculationValid = (Math.abs(theoreticalContent - item.user_amount) < 1.0); // 允许1元内四舍五入误差
         
         if (calculationValid) {
-          reason = `标准与计算准确（${base}元/年 × ${coefficient * 100}%比例 × ${years}年）`;
+          reason = `标准与计算准确（${standardLabel}：${base}元/年 × ${coefficient * 100}%比例 × ${years}年）`;
         } else {
-          reason = `标准或乘积有误！按照适用标准 ${base}元/年，${level}级伤残系数${coefficient * 100}%，主张${years}年，应为 ${theoreticalContent} 元。`;
+          reason = `标准或乘积有误！按照${standardLabel}适用标准 ${base}元/年，${level}级伤残系数${coefficient * 100}%，主张${years}年，应为 ${theoreticalContent} 元。`;
         }
         break;
       }

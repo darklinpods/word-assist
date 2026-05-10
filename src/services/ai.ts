@@ -7,6 +7,7 @@ import { EVIDENCE_CHECKLIST } from '../utils/evidence-rules';
 import type { EvidenceRawResult } from '../utils/evidence-rules';
 import type { PartyExtraction } from '../types/parties';
 import { getErrorMessage } from '../utils/error';
+import { parseClaimItems, parseEvidenceResults, parsePartyExtraction } from './ai-validators';
 
 const API_KEY = String(import.meta.env.VITE_ARK_API_KEY ?? '').trim();
 const MODEL_EP_ID = String(import.meta.env.VITE_ARK_MODEL_EP_ID ?? '').trim();
@@ -151,7 +152,7 @@ export async function extractClaimElementsAsJSON(text: string): Promise<ClaimIte
         0.0
       )
     );
-    return JSON.parse(content) as ClaimItemExtracted[];
+    return parseClaimItems(content);
   } catch (error: unknown) {
     throw new Error(`解析索赔失败: ${getErrorMessage(error)}`);
   }
@@ -195,7 +196,7 @@ ${checklistSummary}
         0.0
       )
     );
-    return JSON.parse(content) as EvidenceRawResult[];
+    return parseEvidenceResults(content);
   } catch (error: unknown) {
     throw new Error(`证据核查失败: ${getErrorMessage(error)}`);
   }
@@ -275,7 +276,7 @@ export async function extractPartiesFromText(text: string): Promise<PartyExtract
         0.0
       )
     );
-    const parsed = JSON.parse(content) as PartyExtraction;
+    const parsed = parsePartyExtraction(content);
     return {
       plaintiffsNatural: parsed.plaintiffsNatural || [],
       defendantsNatural: parsed.defendantsNatural || [],
