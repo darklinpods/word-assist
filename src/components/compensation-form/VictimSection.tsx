@@ -26,7 +26,7 @@ export default function VictimSection({ params, autoCompensationYears, onUpdate 
   const isInjury = params.caseType === 'injury';
 
   return (
-    <Section title="👤 伤者信息">
+    <Section title="伤者信息">
       <div className="grid grid-cols-2 gap-2">
         <div>
           <Label>年龄（岁）</Label>
@@ -42,7 +42,7 @@ export default function VictimSection({ params, autoCompensationYears, onUpdate 
                 const val = e.target.value;
                 onUpdate('disabilityLevel', val === 'null' ? null : Number(val));
               }}
-              className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm text-gray-800 bg-white focus:outline-none focus:border-indigo-400"
+              className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm text-text-primary bg-white focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
             >
               {DISABILITY_LEVELS.map(opt => (
                 <option key={String(opt.value)} value={opt.value === null ? 'null' : opt.value}>

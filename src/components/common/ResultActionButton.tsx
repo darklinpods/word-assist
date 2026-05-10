@@ -1,14 +1,16 @@
 import { type ButtonHTMLAttributes, type ReactNode } from 'react';
 
-type Variant = 'gray' | 'emerald' | 'blue';
+type Variant = 'primary' | 'gray' | 'emerald' | 'blue' | 'cta';
 
 const baseClasses =
-  'px-3 py-1.5 flex items-center text-xs rounded-md transition-colors font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
+  'px-3 py-1.5 flex items-center gap-1 text-xs rounded-md transition-colors font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
 
 const variantClasses: Record<Variant, string> = {
-  gray: 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200',
+  primary: 'bg-primary text-white hover:bg-primary-dark border border-primary shadow-sm',
+  gray: 'bg-gray-50 text-text-secondary hover:bg-gray-100 border border-gray-200',
   emerald: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200',
-  blue: 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200',
+  blue: 'bg-primary/10 text-primary hover:bg-primary/15 border border-primary/20',
+  cta: 'bg-cta text-white hover:bg-cta-hover border border-cta shadow-sm',
 };
 
 const joinClassNames = (...classes: Array<string | undefined | false>) =>

@@ -11,7 +11,7 @@ export default function LossSection({ params, onUpdate }: Props) {
   const isInjury = params.caseType === 'injury';
 
   return (
-    <Section title="💰 损失明细">
+    <Section title="损失明细">
       <div>
         <Label>医疗费（发票总额）</Label>
         <NumberInput

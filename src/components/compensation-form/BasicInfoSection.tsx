@@ -18,13 +18,13 @@ export default function BasicInfoSection({
   onUpdateProvince,
 }: Props) {
   return (
-    <Section title="📋 基本信息">
+    <Section title="基本信息">
       <div>
         <Label>省份</Label>
         <select
           value={params.province}
           onChange={e => onUpdateProvince(e.target.value)}
-          className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm text-gray-800 bg-white focus:outline-none focus:border-indigo-400"
+          className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm text-text-primary bg-white focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
         >
           {availableProvinces.map(p => (
             <option key={p}>{p}</option>
@@ -37,7 +37,7 @@ export default function BasicInfoSection({
         <select
           value={params.year}
           onChange={e => onUpdate('year', e.target.value)}
-          className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm text-gray-800 bg-white focus:outline-none focus:border-indigo-400"
+          className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm text-text-primary bg-white focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
         >
           {availableYears.map(y => (
             <option key={y}>{y}</option>

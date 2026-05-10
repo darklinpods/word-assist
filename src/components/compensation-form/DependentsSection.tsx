@@ -18,7 +18,7 @@ export default function DependentsSection({
   onUpdateDependent,
 }: Props) {
   return (
-    <Section title="👨‍👩‍👧 被扶养人（选填）" defaultOpen={false}>
+    <Section title="被扶养人（选填）" defaultOpen={false}>
       <div className="space-y-2">
         {dependents.map(dep => (
           <div
@@ -31,7 +31,7 @@ export default function DependentsSection({
                 placeholder="称谓（如：子女、父亲）"
                 value={dep.name}
                 onChange={e => onUpdateDependent(dep.id, 'name', e.target.value)}
-                className="text-sm border border-gray-200 rounded-md px-2 py-1 flex-1 mr-2 focus:outline-none focus:border-indigo-400 bg-white"
+                className="text-sm border border-gray-200 rounded-md px-2 py-1 flex-1 mr-2 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 bg-white"
               />
               <button
                 type="button"
@@ -66,7 +66,7 @@ export default function DependentsSection({
         <button
           type="button"
           onClick={onAddDependent}
-          className="w-full py-1.5 border border-dashed border-gray-300 rounded-lg text-xs text-gray-500 hover:border-indigo-300 hover:text-indigo-600 flex items-center justify-center transition-colors"
+          className="w-full py-1.5 border border-dashed border-gray-300 rounded-lg text-xs text-text-muted hover:border-primary/30 hover:text-primary flex items-center justify-center transition-colors cursor-pointer"
         >
           <PlusCircle className="w-3.5 h-3.5 mr-1" />
           添加被扶养人

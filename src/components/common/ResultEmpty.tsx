@@ -12,7 +12,7 @@ export default function ResultEmpty({ children, className }: Props) {
   return (
     <div
       className={joinClassNames(
-        'text-[13px] text-gray-500 bg-white p-4 rounded-lg border border-gray-200 shadow-sm',
+        'text-[13px] text-text-secondary bg-white p-4 rounded-xl border border-gray-200 shadow-sm',
         className
       )}
     >

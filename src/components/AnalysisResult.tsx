@@ -22,7 +22,7 @@ export default function AnalysisResult({
   const actions = (
     <div className="flex gap-2">
       <ResultActionButton onClick={onRerun} disabled={rerunDisabled} variant="gray">
-        <RefreshCw className="w-3.5 h-3.5 mr-1" />重新分析
+        <RefreshCw className="w-3.5 h-3.5" />重新分析
       </ResultActionButton>
       <ResultActionButton
         onClick={onInsert}
@@ -30,27 +30,27 @@ export default function AnalysisResult({
         variant="emerald"
         title="将以下建议插入到 Word 当前光标后"
       >
-        <ArrowDownToLine className="w-3.5 h-3.5 mr-1" />插入批注
+        <ArrowDownToLine className="w-3.5 h-3.5" />插入批注
       </ResultActionButton>
     </div>
   );
 
   const content = !result ? (
-    <ResultEmpty>暂无审查结果。点击“重新分析”开始。</ResultEmpty>
+    <ResultEmpty>暂无审查结果。点击"重新分析"开始。</ResultEmpty>
   ) : (
-    <div className="text-[13px] text-gray-800 bg-white p-4 rounded-lg border border-gray-200 shadow-sm max-h-[400px] overflow-y-auto w-full selection:bg-indigo-100">
+    <div className="text-[13px] text-text-primary bg-white p-4 rounded-lg border border-gray-200 shadow-sm max-h-[400px] overflow-y-auto w-full">
       <ReactMarkdown
         components={{
           h3: ({ ...props }) => (
             <h3
-              className="text-sm font-bold text-indigo-800 mt-4 mb-2 pb-1 border-b border-indigo-100 break-words"
+              className="text-sm font-bold text-primary mt-4 mb-2 pb-1 border-b border-primary/20 break-words font-heading"
               {...props}
             />
           ),
           h4: ({ ...props }) => (
-            <h4 className="text-[13px] font-bold text-gray-900 mt-3 mb-1 break-words" {...props} />
+            <h4 className="text-[13px] font-bold text-text-primary mt-3 mb-1 break-words" {...props} />
           ),
-          strong: ({ ...props }) => <strong className="font-bold text-indigo-700" {...props} />,
+          strong: ({ ...props }) => <strong className="font-bold text-primary" {...props} />,
           ul: ({ ...props }) => <ul className="list-disc pl-5 mb-3 space-y-1.5" {...props} />,
           ol: ({ ...props }) => <ol className="list-decimal pl-5 mb-3 space-y-1.5" {...props} />,
           li: ({ ...props }) => <li className="break-words leading-relaxed" {...props} />,
@@ -66,10 +66,10 @@ export default function AnalysisResult({
     <ResultCard
       variant="section"
       title="AI 审查建议"
-      icon={<Wand2 className="w-4 h-4 mr-1.5 text-indigo-500" />}
+      icon={<Wand2 className="w-4 h-4 text-primary" />}
       actions={actions}
       titleTag="h3"
-      titleClassName="text-[15px] font-bold text-gray-800"
+      titleClassName="text-[15px] font-bold text-text-primary"
       headerClassName="mb-3"
     >
       {content}

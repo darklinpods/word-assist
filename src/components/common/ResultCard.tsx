@@ -39,13 +39,13 @@ export default function ResultCard({
   return (
     <div className={joinClassNames(variantClasses[variant], className)}>
       <div className={joinClassNames('flex justify-between items-center', headerClassName)}>
-        <TitleTag className={joinClassNames('flex items-center', titleClassName)}>
+        <TitleTag className={joinClassNames('flex items-center gap-2 text-sm font-bold text-text-primary font-heading', titleClassName)}>
           {icon}
           {title}
         </TitleTag>
         {actions}
       </div>
-      <div className={bodyClassName}>{children}</div>
+      <div className={bodyClassName || 'mt-3'}>{children}</div>
     </div>
   );
 }

@@ -12,7 +12,7 @@ export default function App() {
   const calculator = useCompensationCalculator();
 
   return (
-    <div className="h-screen flex flex-col font-sans bg-gray-50">
+    <div className="h-screen flex flex-col bg-[var(--color-surface)]">
       <Header />
       {view === 'calculator' ? (
         <CalculatorView calculator={calculator} onBack={() => setView('main')} />

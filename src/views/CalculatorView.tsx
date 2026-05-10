@@ -1,3 +1,4 @@
+import { Calculator } from 'lucide-react';
 import { ArrowLeft } from 'lucide-react';
 
 import type { useCompensationCalculator } from '../hooks/useCompensationCalculator';
@@ -14,12 +15,14 @@ export default function CalculatorView({ calculator, onBack }: Props) {
     <div className="flex-1 overflow-y-auto p-4 space-y-4">
       <button
         onClick={onBack}
-        className="flex items-center text-sm text-gray-500 hover:text-gray-800 transition-colors"
+        className="flex items-center text-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
       >
         <ArrowLeft className="w-4 h-4 mr-1" />返回主界面
       </button>
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 leading-normal">
-        <h2 className="text-sm font-semibold text-gray-800 mb-4">🧮 赔偿金额计算器</h2>
+        <h2 className="text-sm font-bold text-text-primary mb-4 font-heading flex items-center gap-1.5">
+          <Calculator className="w-4 h-4 text-primary" />赔偿金额计算器
+        </h2>
         <CompensationForm
           params={calculator.params}
           availableProvinces={calculator.availableProvinces}
@@ -42,7 +45,7 @@ export default function CalculatorView({ calculator, onBack }: Props) {
           />
         )}
         {calculator.error && calculator.result && (
-          <div className="mt-3 text-red-500 text-sm bg-red-50 p-2.5 rounded-md border border-red-100">
+          <div className="mt-3 text-error text-sm bg-red-50 p-2.5 rounded-md border border-red-100">
             {calculator.error}
           </div>
         )}

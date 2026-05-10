@@ -29,7 +29,7 @@ export function NumberInput({
         value={value === 0 ? '' : value}
         placeholder={placeholder}
         onChange={e => onChange(e.target.value === '' ? 0 : Number(e.target.value))}
-        className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm text-gray-800 focus:outline-none focus:border-indigo-400 bg-white"
+        className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm text-text-primary bg-white focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
       />
       {suffix && <span className="ml-1 text-[11px] text-gray-400 whitespace-nowrap">{suffix}</span>}
     </div>
@@ -54,8 +54,8 @@ export function RadioGroup<T extends string>({
           onClick={() => onChange(opt.value)}
           className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
             value === opt.value
-              ? 'bg-indigo-600 text-white border-indigo-600'
-              : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
+              ? 'bg-primary text-white border-primary'
+              : 'bg-white text-text-secondary border-gray-200 hover:border-primary/30'
           }`}
         >
           {opt.label}
