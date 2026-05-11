@@ -1,10 +1,13 @@
 import type { PartyExtraction } from '../types/parties';
+import type { ExtractedCalculatorParams } from '../types/compensation-extraction';
+import type { CaseType } from '../utils/compensation-calculator';
 import type { ClaimItemExtracted } from '../utils/compensation-rules';
 import type { EvidenceRawResult, EvidenceStatus } from '../utils/evidence-rules';
 
 type JsonRecord = Record<string, unknown>;
 
 const EVIDENCE_STATUSES: EvidenceStatus[] = ['present', 'weak', 'missing'];
+const CASE_TYPES: CaseType[] = ['injury', 'death'];
 
 export function parseClaimItems(content: string): ClaimItemExtracted[] {
   const value = parseJson(content, '索赔要素');
@@ -77,6 +80,48 @@ export function parsePartyExtraction(content: string): PartyExtraction {
   };
 }
 
+export function parseCalculatorParams(content: string): ExtractedCalculatorParams {
+  const value = parseJson(content, '赔偿计算参数');
+  assertRecord(value, '赔偿计算参数');
+
+  const params: ExtractedCalculatorParams = {
+    warnings: readStringArray(value, 'warnings', '赔偿计算参数'),
+  };
+
+  assignOptionalExtractedString(params, value, 'province', '赔偿计算参数');
+  assignOptionalExtractedString(params, value, 'year', '赔偿计算参数');
+  assignOptionalCaseType(params, value, 'caseType', '赔偿计算参数');
+  assignOptionalExtractedNumber(params, value, 'victimAge', '赔偿计算参数');
+  assignOptionalNullableDisabilityLevel(params, value, 'disabilityLevel', '赔偿计算参数');
+  assignOptionalExtractedNumber(params, value, 'medicalExpense', '赔偿计算参数');
+  assignOptionalExtractedNumber(params, value, 'hospitalizationDays', '赔偿计算参数');
+  assignOptionalExtractedNumber(params, value, 'nutritionDays', '赔偿计算参数');
+  assignOptionalExtractedNumber(params, value, 'lostWageDays', '赔偿计算参数');
+  assignOptionalExtractedNumber(params, value, 'monthlyIncome', '赔偿计算参数');
+  assignOptionalExtractedNumber(params, value, 'nursingDays', '赔偿计算参数');
+  assignOptionalExtractedNumber(params, value, 'nursingPersons', '赔偿计算参数');
+  assignOptionalExtractedNumber(params, value, 'transportFee', '赔偿计算参数');
+  assignOptionalExtractedNumber(params, value, 'assessmentFee', '赔偿计算参数');
+  assignOptionalExtractedNumber(params, value, 'assistiveDeviceFee', '赔偿计算参数');
+  assignOptionalExtractedNumber(params, value, 'mentalDistressFee', '赔偿计算参数');
+
+  const dependents = value.dependents;
+  if (dependents !== undefined) {
+    assertArray(dependents, '赔偿计算参数.dependents');
+    params.dependents = dependents.map((item, index) => {
+      const path = `赔偿计算参数.dependents[${index}]`;
+      assertRecord(item, path);
+      return {
+        name: readString(item, 'name', path),
+        age: readNumber(item, 'age', path),
+        otherSupporters: readNumber(item, 'otherSupporters', path),
+      };
+    });
+  }
+
+  return params;
+}
+
 function parseJson(content: string, label: string): unknown {
   try {
     return JSON.parse(content) as unknown;
@@ -122,6 +167,76 @@ function assignOptionalNumber(
 ): void {
   const value = record[key];
   if (value === undefined) return;
+  assertNumber(value, `${path}.${key}`);
+  target[key] = value;
+}
+
+function assignOptionalExtractedString(
+  target: ExtractedCalculatorParams,
+  record: JsonRecord,
+  key: 'province' | 'year',
+  path: string
+): void {
+  const value = record[key];
+  if (value === undefined) return;
+  if (typeof value !== 'string') {
+    throw new Error(`${path}.${key} 必须是字符串。`);
+  }
+  target[key] = value;
+}
+
+function assignOptionalExtractedNumber(
+  target: ExtractedCalculatorParams,
+  record: JsonRecord,
+  key: keyof Pick<
+    ExtractedCalculatorParams,
+    | 'victimAge'
+    | 'medicalExpense'
+    | 'hospitalizationDays'
+    | 'nutritionDays'
+    | 'lostWageDays'
+    | 'monthlyIncome'
+    | 'nursingDays'
+    | 'nursingPersons'
+    | 'transportFee'
+    | 'assessmentFee'
+    | 'assistiveDeviceFee'
+    | 'mentalDistressFee'
+  >,
+  path: string
+): void {
+  const value = record[key];
+  if (value === undefined) return;
+  assertNumber(value, `${path}.${key}`);
+  target[key] = value;
+}
+
+function assignOptionalCaseType(
+  target: ExtractedCalculatorParams,
+  record: JsonRecord,
+  key: 'caseType',
+  path: string
+): void {
+  const value = record[key];
+  if (value === undefined) return;
+  if (typeof value !== 'string' || !CASE_TYPES.includes(value as CaseType)) {
+    throw new Error(`${path}.${key} 必须是 injury 或 death。`);
+  }
+  target[key] = value as CaseType;
+}
+
+function assignOptionalNullableDisabilityLevel(
+  target: ExtractedCalculatorParams,
+  record: JsonRecord,
+  key: 'disabilityLevel',
+  path: string
+): void {
+  const value = record[key];
+  if (value === undefined) return;
+  if (value === null) {
+    target[key] = null;
+    return;
+  }
   assertNumber(value, `${path}.${key}`);
   target[key] = value;
 }

@@ -3,13 +3,16 @@ import {
   type CaseParams,
   type CalcResult,
   type Dependent,
+  type ProvinceYearStandards,
   calculateCompensation,
   getStandards,
   getAvailableProvinces,
   getAvailableYears,
   calcVictimCompensationYears,
 } from '../utils/compensation-calculator';
-import { exportCompensationTable } from '../utils/office-utils';
+import { applyExtractedCalculatorParams } from '../utils/compensation-prefill';
+import { exportCompensationTable, getDocumentText } from '../utils/office-utils';
+import { extractCalculatorParamsFromComplaint } from '../services/ai';
 import { getErrorMessage } from '../utils/error';
 
 const DEFAULT_PARAMS: CaseParams = {
@@ -44,6 +47,9 @@ export function useCompensationCalculator() {
   const [result, setResult] = useState<CalcResult | null>(null);
   const [error, setError] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  const [isPrefilling, setIsPrefilling] = useState(false);
+  const [prefillWarnings, setPrefillWarnings] = useState<string[]>([]);
+  const [prefilledFields, setPrefilledFields] = useState<string[]>([]);
 
   const availableProvinces = useMemo(() => getAvailableProvinces(), []);
   const availableYears = useMemo(() => getAvailableYears(params.province), [params.province]);
@@ -96,6 +102,10 @@ export function useCompensationCalculator() {
 
   // ── 计算 ──────────────────────────────────────────────────────
 
+  const runCalculation = useCallback((nextParams: CaseParams, standards: ProvinceYearStandards): CalcResult => {
+    return calculateCompensation(nextParams, standards);
+  }, []);
+
   const calculate = useCallback(() => {
     const standards = getStandards(params.province, params.year);
     if (!standards) {
@@ -104,12 +114,43 @@ export function useCompensationCalculator() {
     }
     try {
       setError('');
-      const res = calculateCompensation(params, standards);
+      const res = runCalculation(params, standards);
       setResult(res);
     } catch (err: unknown) {
       setError('计算出错: ' + getErrorMessage(err));
     }
-  }, [params]);
+  }, [params, runCalculation]);
+
+  const prefillFromComplaint = useCallback(async () => {
+    setIsPrefilling(true);
+    setError('');
+    setPrefillWarnings([]);
+    setPrefilledFields([]);
+    try {
+      const text = await getDocumentText();
+      if (!text.trim()) {
+        throw new Error('当前 Word 文档没有可读取的正文内容。');
+      }
+
+      const extracted = await extractCalculatorParamsFromComplaint(text);
+      const prefill = applyExtractedCalculatorParams(params, extracted);
+      const standards = getStandards(prefill.params.province, prefill.params.year);
+      if (!standards) {
+        throw new Error(`未找到 ${prefill.params.province} ${prefill.params.year} 年的标准数据，请检查 src/data/compensation-standards.json`);
+      }
+
+      const calculated = runCalculation(prefill.params, standards);
+      setParams(prefill.params);
+      setResult(calculated);
+      setPrefillWarnings(prefill.warnings);
+      setPrefilledFields(prefill.appliedFields);
+    } catch (err: unknown) {
+      setError('自动填入失败: ' + getErrorMessage(err));
+      setResult(null);
+    } finally {
+      setIsPrefilling(false);
+    }
+  }, [params, runCalculation]);
 
   // ── 导出到 Word ───────────────────────────────────────────────
 
@@ -135,6 +176,8 @@ export function useCompensationCalculator() {
     setParams(DEFAULT_PARAMS);
     setResult(null);
     setError('');
+    setPrefillWarnings([]);
+    setPrefilledFields([]);
   }, []);
 
   return {
@@ -147,7 +190,11 @@ export function useCompensationCalculator() {
     result,
     error,
     isExporting,
+    isPrefilling,
+    prefillWarnings,
+    prefilledFields,
     calculate,
+    prefillFromComplaint,
     exportToWord,
     reset,
     availableProvinces,

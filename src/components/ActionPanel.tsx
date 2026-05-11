@@ -15,7 +15,7 @@ interface Props {
   children?: ReactNode;
 }
 
-const ribbonBtn = (active: boolean, color: string) =>
+const ribbonBtn = (active: boolean) =>
   `relative group px-2.5 py-1.5 rounded-md transition-colors cursor-pointer inline-flex items-center gap-1.5 text-[11px] leading-tight ${
     active
       ? 'bg-primary/10 text-primary font-semibold'
@@ -80,7 +80,7 @@ export default function ActionPanel({
                     <button
                       key={panel.id}
                       onClick={() => onSelectPanel(panel.id)}
-                      className={ribbonBtn(isActive, panel.activeClassName)}
+                      className={ribbonBtn(isActive)}
                     >
                       {panel.isLoading ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -101,7 +101,7 @@ export default function ActionPanel({
                     <button
                       key={panel.id}
                       onClick={() => onSelectPanel(panel.id)}
-                      className={ribbonBtn(isActive, panel.activeClassName)}
+                      className={ribbonBtn(isActive)}
                     >
                       {panel.isLoading ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -121,7 +121,7 @@ export default function ActionPanel({
               <RibbonGroup title="计算入口">
                 <button
                   onClick={onOpenCalculator}
-                  className={ribbonBtn(false, '') + ' hover:text-cta hover:bg-amber-50'}
+                  className={ribbonBtn(false) + ' hover:text-cta hover:bg-amber-50'}
                 >
                   <ReceiptText className="w-4 h-4" />
                   <span>赔偿计算</span>
@@ -135,7 +135,7 @@ export default function ActionPanel({
               <RibbonGroup title="文书">
                 <button
                   onClick={onInsertTemplate}
-                  className={ribbonBtn(false, '') + ' hover:text-primary hover:bg-primary/5'}
+                  className={ribbonBtn(false) + ' hover:text-primary hover:bg-primary/5'}
                 >
                   <FileText className="w-4 h-4" />
                   <span>插入模板</span>
@@ -143,7 +143,7 @@ export default function ActionPanel({
 
                 <button
                   onClick={onFormatDocument}
-                  className={ribbonBtn(false, '') + ' hover:text-emerald-600 hover:bg-emerald-50'}
+                  className={ribbonBtn(false) + ' hover:text-emerald-600 hover:bg-emerald-50'}
                 >
                   <PaintbrushVertical className="w-4 h-4" />
                   <span>格式整理</span>

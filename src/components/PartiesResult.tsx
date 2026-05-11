@@ -16,6 +16,7 @@ const renderCheck = (check?: PartyCheckItem) => {
   if (!check) return null;
   const { missing, recommendedMissing, issues, ok } = check.completeness;
   const missingText = missing.length > 0 ? `缺少：${missing.join('、')}` : '';
+  const recommendText = recommendedMissing.length > 0 ? `建议补充：${recommendedMissing.join('、')}` : '';
   const issueText = issues.length > 0 ? `问题：${issues.join('、')}` : '';
 
   const idStatus =

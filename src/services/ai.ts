@@ -6,8 +6,9 @@ import type { ClaimItemExtracted } from '../utils/compensation-rules';
 import { EVIDENCE_CHECKLIST } from '../utils/evidence-rules';
 import type { EvidenceRawResult } from '../utils/evidence-rules';
 import type { PartyExtraction } from '../types/parties';
+import type { ExtractedCalculatorParams } from '../types/compensation-extraction';
 import { getErrorMessage } from '../utils/error';
-import { parseClaimItems, parseEvidenceResults, parsePartyExtraction } from './ai-validators';
+import { parseCalculatorParams, parseClaimItems, parseEvidenceResults, parsePartyExtraction } from './ai-validators';
 
 const API_KEY = String(import.meta.env.VITE_ARK_API_KEY ?? '').trim();
 const MODEL_EP_ID = String(import.meta.env.VITE_ARK_MODEL_EP_ID ?? '').trim();
@@ -155,6 +156,68 @@ export async function extractClaimElementsAsJSON(text: string): Promise<ClaimIte
     return parseClaimItems(content);
   } catch (error: unknown) {
     throw new Error(`解析索赔失败: ${getErrorMessage(error)}`);
+  }
+}
+
+/**
+ * 从诉状全文中抽取赔偿计算器可预填的参数
+ */
+export async function extractCalculatorParamsFromComplaint(text: string): Promise<ExtractedCalculatorParams> {
+  assertConfigured(text);
+
+  const today = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+  const systemPrompt = `你是一个交通事故人身损害赔偿计算参数抽取器。
+请从起诉状全文中提取"赔偿金额计算器"需要的参数。你只做事实抽取和明确换算，不要自行套用赔偿标准计算应得金额。
+
+当前日期：${today}。如果原文写明出生日期但未写年龄，可以按当前日期推算 victimAge。
+
+抽取规则：
+1. 只输出原文明确出现、或可由原文明确日期/金额直接换算出的字段。
+2. province 仅在原文能看出事故地、法院地、当事人所在地或适用标准地区时输出，如"湖北省"。
+3. year 仅在原文明确出现适用年度、统计年度或赔偿标准年度时输出，如"2026"。
+4. caseType: 死亡案件输出 "death"；存在伤残等级或人身损害伤情案件输出 "injury"。
+5. disabilityLevel: 一级到十级输出 1-10；明确无伤残输出 null；不确定则不要输出。
+6. 各类金额字段必须是 Number，去掉逗号和"元"。
+7. 天数字段必须是 Number，例如"住院15天"输出 hospitalizationDays: 15。
+8. monthlyIncome 仅在原文出现月收入、工资流水平均月工资等明确数字时输出。
+9. dependents 只抽取明确的被扶养人；otherSupporters 是除被侵权人外其他共同扶养义务人数，不明确时填 0。
+10. warnings 必须输出字符串数组，说明未识别、需复核或低置信度字段。
+
+输出严格 JSON 对象，不要 Markdown，不要前言后语。字段固定为：
+{
+  "province": "湖北省",
+  "year": "2026",
+  "caseType": "injury",
+  "victimAge": 40,
+  "disabilityLevel": 10,
+  "medicalExpense": 12345.67,
+  "hospitalizationDays": 15,
+  "nutritionDays": 60,
+  "lostWageDays": 90,
+  "monthlyIncome": 5000,
+  "nursingDays": 60,
+  "nursingPersons": 1,
+  "transportFee": 800,
+  "assessmentFee": 1800,
+  "assistiveDeviceFee": 0,
+  "mentalDistressFee": 5000,
+  "dependents": [
+    { "name": "子女", "age": 8, "otherSupporters": 1 }
+  ],
+  "warnings": ["未识别到营养期，需人工确认"]
+}
+未识别的可选字段不要输出，但 warnings 必须输出。`;
+
+  try {
+    const content = stripMarkdownFence(
+      await callArkAPI(
+        [{ role: 'system', content: systemPrompt }, { role: 'user', content: text }],
+        0.0
+      )
+    );
+    return parseCalculatorParams(content);
+  } catch (error: unknown) {
+    throw new Error(`赔偿计算参数抽取失败: ${getErrorMessage(error)}`);
   }
 }
 
