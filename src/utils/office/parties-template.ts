@@ -2,6 +2,37 @@ import type { PartyExtraction } from '../../types/parties';
 import { assertWordLoaded } from './environment';
 
 /**
+ * 要素式诉状填入内容的统一字体格式
+ * 对应 Word「字体 → 高级」：字符宽度（缩放）85%、字符间距 0.25 磅
+ */
+const ELEMENTAL_FONT_NAME = '微软雅黑';
+const ELEMENTAL_FONT_SIZE_POINTS = 11;
+const ELEMENTAL_FONT_SCALING_PERCENT = 85; // 字符宽度 85%
+const ELEMENTAL_CHAR_SPACING_POINTS = 0.25; // 字符间距 0.25 磅
+
+/**
+ * 以统一字体格式覆写单元格全部内容。
+ * 注意：font.scaling / font.spacing 属于 WordApiDesktop 1.3，旧版 Word 不支持；
+ * 因此分两次同步——先提交文本与基础字体保证写入一定成功，
+ * 再单独尝试宽度/间距，失败（宿主不支持）时静默忽略。
+ */
+async function writeCellBody(cell: Word.TableCell, content: string): Promise<void> {
+  const body = cell.body;
+  body.clear();
+  const range = body.insertText(content, Word.InsertLocation.start);
+  range.font.name = ELEMENTAL_FONT_NAME;
+  range.font.size = ELEMENTAL_FONT_SIZE_POINTS;
+  await cell.context.sync();
+  try {
+    range.font.scaling = ELEMENTAL_FONT_SCALING_PERCENT;
+    range.font.spacing = ELEMENTAL_CHAR_SPACING_POINTS;
+    await cell.context.sync();
+  } catch {
+    // 宿主不支持 scaling/spacing，忽略
+  }
+}
+
+/**
  * 将当事人信息写入要素式诉状模板中的“当事人信息”表格（按原文，不改写）
  */
 export async function insertPartiesIntoTemplate(parties: PartyExtraction): Promise<void> {
@@ -72,17 +103,13 @@ export async function insertPartiesIntoTemplate(parties: PartyExtraction): Promi
       throw new Error('模板中的当事人信息行不完整，请确认模板未被修改。');
     }
 
-    const writeRow = (row: Word.TableRow, label: string, content: string) => {
+    const writeRow = async (row: Word.TableRow, label: string, content: string) => {
       const cells = row.cells.items;
       if (!cells || cells.length < 2) {
         throw new Error('当事人信息行结构异常，无法写入内容。');
       }
-      const leftCell = cells[0];
-      const rightCell = cells[1];
-      leftCell.body.clear();
-      leftCell.body.insertText(label, Word.InsertLocation.start);
-      rightCell.body.clear();
-      rightCell.body.insertText(content || '', Word.InsertLocation.start);
+      await writeCellBody(cells[0], label);
+      await writeCellBody(cells[1], content || '');
     };
 
     const applyRowsFromBase = async (
@@ -93,10 +120,10 @@ export async function insertPartiesIntoTemplate(parties: PartyExtraction): Promi
       baseRow.cells.load('items');
       await context.sync();
       if (contents.length === 0) {
-        writeRow(baseRow, label, '');
+        await writeRow(baseRow, label, '');
         return baseRow;
       }
-      writeRow(baseRow, label, contents[0]);
+      await writeRow(baseRow, label, contents[0]);
       let lastRow = baseRow;
       for (let i = 1; i < contents.length; i++) {
         const newRows = lastRow.insertRows(Word.InsertLocation.after, 1);
@@ -105,7 +132,7 @@ export async function insertPartiesIntoTemplate(parties: PartyExtraction): Promi
         const newRow = newRows.items[0];
         newRow.cells.load('items');
         await context.sync();
-        writeRow(newRow, label, contents[i]);
+        await writeRow(newRow, label, contents[i]);
         lastRow = newRow;
       }
       return lastRow;
@@ -125,7 +152,7 @@ export async function insertPartiesIntoTemplate(parties: PartyExtraction): Promi
         const newRow = newRows.items[0];
         newRow.cells.load('items');
         await context.sync();
-        writeRow(newRow, label, contents[i]);
+        await writeRow(newRow, label, contents[i]);
         lastRow = newRow;
       }
       return lastRow;
@@ -183,13 +210,6 @@ export async function insertPartiesIntoTemplate(parties: PartyExtraction): Promi
   });
 }
 
-function applyElementalFont(body: Word.Body) {
-  body.font.name = '微软雅黑';
-  body.font.size = 11;
-  body.font.scaling = 80;
-  body.font.spacing = 0.25;
-}
-
 /**
  * 将完整提取结果（当事人 + 诉讼请求 + 事实与理由 + 索赔清单）写入要素式诉状模板
  * 所有内容均写入对应标签行的右侧单元格（与当事人信息表格结构一致）
@@ -218,10 +238,7 @@ export async function insertFullExtractionIntoTemplate(parties: PartyExtraction)
       await context.sync();
       const cells = row.cells.items;
       const target = cells[cells.length - 1];
-      target.body.clear();
-      target.body.insertText(content, Word.InsertLocation.start);
-      applyElementalFont(target.body);
-      await context.sync();
+      await writeCellBody(target, content);
     };
 
     // 搜索标签所在行，写入下一行的独立单元格（适用于标题独占一行 + 下一行单元格的情况）
@@ -315,10 +332,7 @@ export async function insertFullExtractionIntoTemplate(parties: PartyExtraction)
       }
 
       const target = cells[0];
-      target.body.clear();
-      target.body.insertText(content, Word.InsertLocation.start);
-      applyElementalFont(target.body);
-      await context.sync();
+      await writeCellBody(target, content);
     };
 
     // 诉讼请求、索赔清单：标题独占一行，内容在下一行

@@ -73,7 +73,9 @@ export async function insertTemplate(): Promise<void> {
   assertWordLoaded();
   const templateBase64 = await getTemplateBase64();
   return Word.run(async (context) => {
-    context.document.body.insertFileFromBase64(templateBase64, Word.InsertLocation.start);
+    const insertedRange = context.document.body.insertFileFromBase64(templateBase64, Word.InsertLocation.start);
+    // 在插入的模板末尾追加分页符，使模板与原有文档内容分页
+    insertedRange.insertBreak(Word.BreakType.page, Word.InsertLocation.after);
     await context.sync();
   });
 }
