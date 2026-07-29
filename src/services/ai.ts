@@ -9,10 +9,7 @@ import type { PartyExtraction } from '../types/parties';
 import type { ExtractedCalculatorParams } from '../types/compensation-extraction';
 import { getErrorMessage } from '../utils/error';
 import { parseCalculatorParams, parseClaimItems, parseEvidenceResults, parsePartyExtraction } from './ai-validators';
-
-const API_KEY = String(import.meta.env.VITE_ARK_API_KEY ?? '').trim();
-const MODEL_EP_ID = String(import.meta.env.VITE_ARK_MODEL_EP_ID ?? '').trim();
-const API_URL = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
+import { ARK_API_URL, requireAiConfig } from './ai-config';
 
 function inferCompanyType(name: string): string {
   return name.includes('股份') ? '股份有限公司' : '有限责任公司';
@@ -48,12 +45,7 @@ function normalizeLegalPartyList(items: string[]): string[] {
 }
 
 function assertArkConfigured(): void {
-  if (!API_KEY) {
-    throw new Error('请先配置 VITE_ARK_API_KEY（建议写入 .env.local）。');
-  }
-  if (!MODEL_EP_ID || MODEL_EP_ID.includes('请在此处填入')) {
-    throw new Error('请先配置 VITE_ARK_MODEL_EP_ID（格式如 ep-xxxxxx）。');
-  }
+  requireAiConfig();
 }
 
 function assertConfigured(text: string): void {
@@ -65,11 +57,11 @@ async function callArkAPI(
   messages: { role: string; content: string }[],
   temperature: number
 ): Promise<string> {
-  assertArkConfigured();
-  const response = await fetch(API_URL, {
+  const { apiKey, endpointId } = requireAiConfig();
+  const response = await fetch(ARK_API_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
-    body: JSON.stringify({ model: MODEL_EP_ID, messages, temperature }),
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify({ model: endpointId, messages, temperature }),
   });
   if (!response.ok) {
     const err = await response.json();

@@ -14,3 +14,4 @@
 当前记录：
 
 - [0001-word-format-progressive-enhancement.md](./0001-word-format-progressive-enhancement.md)
+- [0002-runtime-ai-configuration.md](./0002-runtime-ai-configuration.md)
