@@ -9,8 +9,6 @@ type OfficeEnvironmentStatus =
   | 'script-load-failed'
   | 'sdk-missing'
 
-type OfficeAction = 'read-selection' | 'word-document'
-
 interface OfficeBootstrapState {
   scriptRequestedAt: number | null
   scriptLoaded: boolean
@@ -115,9 +113,9 @@ export function getOfficeEnvironmentInfo(): OfficeEnvironmentInfo {
   }
 }
 
-export function getOfficeActionError(action: OfficeAction): string {
+export function getOfficeActionError(): string {
   const env = getOfficeEnvironmentInfo()
-  const actionLabel = action === 'read-selection' ? '读取文档失败' : 'Word 文档操作失败'
+  const actionLabel = 'Word 文档操作失败'
 
   switch (env.status) {
     case 'script-load-failed':
@@ -142,7 +140,7 @@ export function useOfficeEnvironment() {
     const refresh = () => {
       const nextInfo = getOfficeEnvironmentInfo()
       setInfo(nextInfo)
-      if (nextInfo.isOfficeReady) {
+      if (nextInfo.isWordReady) {
         window.clearInterval(intervalId)
         window.clearTimeout(timeoutId)
       }

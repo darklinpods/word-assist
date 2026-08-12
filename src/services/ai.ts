@@ -1,74 +1,44 @@
-/**
- * Real AI service connecting to Volcengine Ark API.
- */
-
-import type { ClaimItemExtracted } from '../utils/compensation-rules';
+import type { ElementalComplaintDraft } from '../document-generator/complaint/types';
 import { EVIDENCE_CHECKLIST } from '../utils/evidence-rules';
 import type { EvidenceRawResult } from '../utils/evidence-rules';
-import type { PartyExtraction } from '../types/parties';
-import type { ExtractedCalculatorParams } from '../types/compensation-extraction';
 import { getErrorMessage } from '../utils/error';
-import { parseCalculatorParams, parseClaimItems, parseEvidenceResults, parsePartyExtraction } from './ai-validators';
 import { ARK_API_URL, requireAiConfig } from './ai-config';
+import { parseElementalComplaintDraft, parseEvidenceResults } from './ai-validators';
 
-function inferCompanyType(name: string): string {
-  return name.includes('股份') ? '股份有限公司' : '有限责任公司';
+interface ArkMessage {
+  role: 'system' | 'user';
+  content: string;
 }
 
-function normalizeLegalPartyRaw(raw: string): string {
-  const normalized = raw.replace(/\r\n/g, '\n');
-  const nameMatch = normalized.match(/名称\s*[:：]\s*(.*)/);
-  const companyName = nameMatch?.[1]?.trim() ?? '';
-
-  if (!companyName) return normalized;
-
-  const companyType = inferCompanyType(companyName);
-  const lines = normalized.split('\n');
-  const typeLineIndex = lines.findIndex((line) => /^\s*法人类型\s*[:：]/.test(line));
-
-  if (typeLineIndex >= 0) {
-    lines[typeLineIndex] = `法人类型：${companyType}`;
-    return lines.join('\n');
-  }
-
-  const legalRepLineIndex = lines.findIndex((line) => /^\s*法定代表人\s*[:：]/.test(line));
-  if (legalRepLineIndex >= 0) {
-    lines.splice(legalRepLineIndex, 0, `法人类型：${companyType}`);
-    return lines.join('\n');
-  }
-
-  return [...lines, `法人类型：${companyType}`].join('\n');
+interface ArkResponse {
+  choices?: Array<{ message?: { content?: string } }>;
+  error?: { message?: string };
 }
 
-function normalizeLegalPartyList(items: string[]): string[] {
-  return items.map((item) => normalizeLegalPartyRaw(item));
-}
-
-function assertArkConfigured(): void {
-  requireAiConfig();
-}
-
-function assertConfigured(text: string): void {
-  if (!text || text.trim() === '') throw new Error('未选中任何文字。');
-  assertArkConfigured();
-}
-
-async function callArkAPI(
-  messages: { role: string; content: string }[],
-  temperature: number
-): Promise<string> {
+async function callArkAPI(messages: ArkMessage[], temperature: number): Promise<string> {
   const { apiKey, endpointId } = requireAiConfig();
   const response = await fetch(ARK_API_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
     body: JSON.stringify({ model: endpointId, messages, temperature }),
   });
+
+  const data = await response.json() as ArkResponse;
   if (!response.ok) {
-    const err = await response.json();
-    throw new Error(`API: ${err.error?.message || response.statusText}`);
+    throw new Error(`API: ${data.error?.message || response.statusText}`);
   }
-  const data = await response.json();
-  return data.choices[0].message.content as string;
+
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new Error('模型未返回有效内容。');
+  return content;
+}
+
+function assertSourceText(text: string): void {
+  if (!text.trim()) throw new Error('当前文档没有可提取的正文内容。');
+  requireAiConfig();
 }
 
 function stripMarkdownFence(content: string): string {
@@ -80,272 +50,87 @@ function stripMarkdownFence(content: string): string {
 }
 
 /**
- * 分析法律文本
- * @param text 要分析的文本
- * @returns 分析结果
+ * 从传统交通事故起诉状全文中提取可编辑的结构化要素。
  */
-export async function analyzeLegalText(text: string): Promise<string> {
-  if (!text || text.trim() === '') {
-    return '请先选中诉状中的部分文字，然后再点击分析。';
-  }
-  assertArkConfigured();
+export async function extractElementalComplaintFromText(text: string): Promise<ElementalComplaintDraft> {
+  assertSourceText(text);
 
-  const today = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
-  const systemPrompt = `你是一名资深的中国执业律师，精通民商事诉讼业务。
-【注意！当前系统真实时间】：今天是 ${today}（请务必以此时间作为判断过去与未来的唯一基准，切记现在不是2024年，切勿受你的模型默认年份影响！）
+  const systemPrompt = `你是中国交通事故民事起诉状的信息提取器。
+只从用户提供的传统式起诉状中提取信息，不得改写原意，不得推断原文没有的事实。
 
-请审查以下当事人起草的民事起诉状片段，重点检查：
-1. 诉讼请求是否明确、具体、完整；
-2. 事实和理由是否有逻辑漏洞或前后矛盾（特别是时间线的合理性，必须完全基于我告知你的系统真实时间！）；
-3. 法律适用（是否引用了确切的现行法律条款，如有缺失请补充）。
-请结构化地列出审查意见及具体的修改建议。保持语气的专业、客观。`;
+当字段未出现时输出空字符串；角色不存在时输出空数组。多个当事人必须分别输出。
+诉讼请求、事故事实、责任认定、投保情况、其他事实和索赔清单应尽量保持原文措辞。
 
-  try {
-    return await callArkAPI(
-      [{ role: 'system', content: systemPrompt }, { role: 'user', content: `请帮我深入审查并提出修改这段诉状建议：\n\n${text}` }],
-      0.2
-    );
-  } catch (error: unknown) {
-    throw new Error(`请求火山引擎大模型时发生异常: ${getErrorMessage(error)}`);
-  }
-}
+【被告角色分类规则（必须严格遵守）】
+1. defendantsLegal 只放非保险类法人被告，例如车辆所有人为公司、车辆管理人为公司或用人单位为公司。
+2. defendantsInsurance 只放承保事故车辆、因保险合同承担交强险或商业险责任的保险公司、分公司或支公司。
+3. 保险公司虽然也是法人，但属于本任务的特定被告类型，禁止同时放入 defendantsLegal。
+4. 同一当事人只能出现一次；如果原文同时说明“法人车主”和“承保保险公司”，应分别提取到 defendantsLegal 与 defendantsInsurance，不得互相替代或合并。
+5. 不得仅因某法人名下车辆已投保，就把该法人车主归类成保险公司。
 
-/**
- * 结构化抽取交通事故索赔事实要素
- */
-export async function extractClaimElementsAsJSON(text: string): Promise<ClaimItemExtracted[]> {
-  assertConfigured(text);
+自然人字段：name（姓名）、gender（性别）、nationality（民族）、birthDate（出生日期）、address（户籍地或住址）、idNumber（公民身份号码）、phone（联系电话）。
+法人、保险公司及法人第三人字段：name（名称）、address（住所地）、creditCode（统一社会信用代码）、entityType（法人类型）、contact（联系人）、legalRepresentative（法定代表人）。
 
-  const systemPrompt = `你是一个无情的法律事实提取机器。
-请从给定的交通事故起诉状文本中，抽取所有主张的索赔科目明细，严禁进行任何你自己的计算！你只负责把文书中写上的数字原样抄录并格式化。
-
-提取要求：
-1. 提取每一项费用名目（如 "医疗费"、"残疾赔偿金"、"护理费"、"误工费"、"休学损失" 等）。
-2. "user_amount": 提取当事人起诉状上明确写出的主张金额，必须为 Number。
-3. "disability_level": 若有伤残等级，提取为1-10的数字（如十级为10，如果没有就不输出）。
-4. "years_claimed": 若有赔偿年限提取为数字（如20）。
-5. "days_claimed": 若写明了天数，如 90 天，提取为 90。
-6. "daily_rate": 类似 50 元/天 的日标准。
-7. "yearly_rate": 类似 52532 元/年 的年标准，不带单位。
-8. "components": 如果某项是由一系列发票算式组成的（如 21895.30+329.06+83.88），请提成一个 Number 数组 [21895.3, 329.06, 83.88]。
-
-输出格式必须是严格的纯 JSON 数组，不要包裹在 Markdown 代码块（如 \`\`\`json）内，不要有任何前言后语。
-示例：
-[
-  { "type": "残疾赔偿金", "user_amount": 98328, "disability_level": 10, "years_claimed": 20 },
-  { "type": "医疗费", "user_amount": 22308.24, "components": [21895.30, 329.06, 83.88] },
-  { "type": "护理费", "user_amount": 12953, "yearly_rate": 52532, "days_claimed": 90 }
-]
-`;
-
-  try {
-    const content = stripMarkdownFence(
-      await callArkAPI(
-        [{ role: 'system', content: systemPrompt }, { role: 'user', content: text }],
-        0.0
-      )
-    );
-    return parseClaimItems(content);
-  } catch (error: unknown) {
-    throw new Error(`解析索赔失败: ${getErrorMessage(error)}`);
-  }
-}
-
-/**
- * 从诉状全文中抽取赔偿计算器可预填的参数
- */
-export async function extractCalculatorParamsFromComplaint(text: string): Promise<ExtractedCalculatorParams> {
-  assertConfigured(text);
-
-  const today = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
-  const systemPrompt = `你是一个交通事故人身损害赔偿计算参数抽取器。
-请从起诉状全文中提取"赔偿金额计算器"需要的参数。你只做事实抽取和明确换算，不要自行套用赔偿标准计算应得金额。
-
-当前日期：${today}。如果原文写明出生日期但未写年龄，可以按当前日期推算 victimAge。
-
-抽取规则：
-1. 只输出原文明确出现、或可由原文明确日期/金额直接换算出的字段。
-2. province 仅在原文能看出事故地、法院地、当事人所在地或适用标准地区时输出，如"湖北省"。
-3. year 仅在原文明确出现适用年度、统计年度或赔偿标准年度时输出，如"2026"。
-4. caseType: 死亡案件输出 "death"；存在伤残等级或人身损害伤情案件输出 "injury"。
-5. disabilityLevel: 一级到十级输出 1-10；明确无伤残输出 null；不确定则不要输出。
-6. 各类金额字段必须是 Number，去掉逗号和"元"。
-7. 天数字段必须是 Number，例如"住院15天"输出 hospitalizationDays: 15。
-8. monthlyIncome 仅在原文出现月收入、工资流水平均月工资等明确数字时输出。
-9. dependents 只抽取明确的被扶养人；otherSupporters 是除被侵权人外其他共同扶养义务人数，不明确时填 0。
-10. warnings 必须输出字符串数组，说明未识别、需复核或低置信度字段。
-
-输出严格 JSON 对象，不要 Markdown，不要前言后语。字段固定为：
+严格输出以下 JSON 对象，不要输出 Markdown 或解释：
 {
-  "province": "湖北省",
-  "year": "2026",
-  "caseType": "injury",
-  "victimAge": 40,
-  "disabilityLevel": 10,
-  "medicalExpense": 12345.67,
-  "hospitalizationDays": 15,
-  "nutritionDays": 60,
-  "lostWageDays": 90,
-  "monthlyIncome": 5000,
-  "nursingDays": 60,
-  "nursingPersons": 1,
-  "transportFee": 800,
-  "assessmentFee": 1800,
-  "assistiveDeviceFee": 0,
-  "mentalDistressFee": 5000,
-  "dependents": [
-    { "name": "子女", "age": 8, "otherSupporters": 1 }
-  ],
-  "warnings": ["未识别到营养期，需人工确认"]
-}
-未识别的可选字段不要输出，但 warnings 必须输出。`;
+  "plaintiffsNatural": [{"name":"","gender":"","nationality":"","birthDate":"","address":"","idNumber":"","phone":""}],
+  "defendantsNatural": [],
+  "defendantsLegal": [{"name":"","address":"","creditCode":"","entityType":"","contact":"","legalRepresentative":""}],
+  "defendantsInsurance": [],
+  "thirdPartyLegal": [],
+  "claimsText": "",
+  "accidentFacts": "",
+  "liabilityDetermination": "",
+  "insuranceInfo": "",
+  "otherFacts": [],
+  "claimsList": ""
+}`;
 
   try {
     const content = stripMarkdownFence(
       await callArkAPI(
-        [{ role: 'system', content: systemPrompt }, { role: 'user', content: text }],
-        0.0
-      )
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `请提取以下传统式起诉状：\n\n${text}` },
+        ],
+        0,
+      ),
     );
-    return parseCalculatorParams(content);
+    return parseElementalComplaintDraft(content);
   } catch (error: unknown) {
-    throw new Error(`赔偿计算参数抽取失败: ${getErrorMessage(error)}`);
+    throw new Error(`要素式起诉状信息提取失败: ${getErrorMessage(error)}`);
   }
 }
 
 /**
- * 证据清单核查
+ * 保留为文书生成流程的辅助核查能力，不再作为一级功能入口。
  */
 export async function extractEvidenceFromText(text: string): Promise<EvidenceRawResult[]> {
-  assertConfigured(text);
-
+  assertSourceText(text);
   const checklistSummary = EVIDENCE_CHECKLIST.map(
-    (e, i) => `${i + 1}. id="${e.id}" 名称="${e.name}" 用途="${e.purpose}"`
+    (item, index) => `${index + 1}. id="${item.id}" 名称="${item.name}" 用途="${item.purpose}"`,
   ).join('\n');
 
-  const systemPrompt = `你是一个中国民事诉讼证据核查助手，精通交通事故人身损害案件的举证规范。
+  const systemPrompt = `你是中国交通事故人身损害案件的证据核查助手。
+请逐一检查以下 ${EVIDENCE_CHECKLIST.length} 项证据在文本中的状态。
 
-你将收到一份起诉状或诉讼材料文本。请逐一检查以下 ${EVIDENCE_CHECKLIST.length} 项标准证据在文本中的出具状态，并严格按照 JSON 格式输出结果。
-
-【标准证据清单】
 ${checklistSummary}
 
-【状态定义】
-- "present"：文本中明确提到或引用了该证据（如"附事故认定书"、"凭医疗发票"等）
-- "weak"：隐约提及但内容不完整或仅泛泛说"见附件"，无具体说明
-- "missing"：未找到任何与该证据相关的表述
-
-【输出格式】
-严格输出纯 JSON 数组，不加 Markdown 代码块，不加任何前言后语：
-[
-  { "id": "accident_report", "status": "present", "note": "原文：见交警部门出具的道路交通事故认定书" },
-  { "id": "medical_invoice", "status": "weak", "note": "原文仅写'见发票'，未说明金额或张数" },
-  { "id": "disability_assessment", "status": "missing", "note": "文本中未提及伤残鉴定" }
-]
-必须输出全部 ${EVIDENCE_CHECKLIST.length} 项，每项都要有 id、status、note 三个字段。`;
+状态只能是 present（明确提到）、weak（提及但不完整）或 missing（未发现）。
+严格输出全部项目组成的 JSON 数组，每项包含 id、status、note，不要输出 Markdown 或解释。`;
 
   try {
     const content = stripMarkdownFence(
       await callArkAPI(
-        [{ role: 'system', content: systemPrompt }, { role: 'user', content: `请核查以下诉状材料中的证据出具情况：\n\n${text}` }],
-        0.0
-      )
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `请核查以下诉状材料：\n\n${text}` },
+        ],
+        0,
+      ),
     );
     return parseEvidenceResults(content);
   } catch (error: unknown) {
     throw new Error(`证据核查失败: ${getErrorMessage(error)}`);
-  }
-}
-
-/**
- * 抽取当事人信息（严格按原文，不改写）
- */
-export async function extractPartiesFromText(text: string): Promise<PartyExtraction> {
-  assertConfigured(text);
-
-  const systemPrompt = `你是一个诉状信息格式化抽取器。
-只从传统式起诉状中抽取信息，禁止改写任何内容，任何未出现的信息不得推断或补充。
-
-【一、当事人】
-角色范围固定为以下五类（没有就留空数组）：
-1. 原告（自然人）
-2. 被告（自然人）
-3. 被告（法人）
-4. 被告（保险公司）
-5. 第三人（法人）
-
-规则：
-- 原告/被告数量不固定，必须逐个输出为数组项。
-- 每个数组项输出为多行格式字符串，只做格式化，不得改写原意。
-- 若某字段在原文中找不到，保留字段名，冒号后留空。
-
-【自然人格式】
-姓名：xxx
-性别：xxx；民族：xxx
-出生日期：xxxx年xx月xx日
-户籍/住址：xxx
-公民身份号码：xxxxxxxx
-联系电话：xxxxxxx
-
-【法人/保险公司/第三人法人格式】
-名称：xxx
-住所地：xxx
-统一社会信用代码：xxxxxxxx
-法人类型：xxx
-联系人：xxx
-法定代表人：xxx
-
-【二、诉讼请求】
-完整复制原文"诉讼请求"部分的所有内容，一字不动照抄，输出到 claimsText 字段。
-
-【三、事实与理由】
-从"事实与理由"部分提取以下四个子项：
-- accidentFacts：交通事故发生情况（通常第一段），原文照抄。
-- liabilityDetermination：交通事故责任认定（通常第二段），原文照抄。
-- insuranceInfo：机动车投保情况（单独的一段），原文照抄。
-- otherFacts：除上述三段之外，事实与理由中其余所有独立段落，每段作为数组中的一个元素，原文照抄，不合并。
-
-【四、索赔清单】
-找到"索赔清单"节（单独的一节），全文照抄，一字不改，输出到 claimsList 字段。
-
-输出格式必须是严格 JSON（不要 Markdown），字段固定为：
-{
-  "plaintiffsNatural": ["..."],
-  "defendantsNatural": ["..."],
-  "defendantsLegal": ["..."],
-  "defendantsInsurance": ["..."],
-  "thirdPartyLegal": ["..."],
-  "claimsText": "...",
-  "accidentFacts": "...",
-  "liabilityDetermination": "...",
-  "insuranceInfo": "...",
-  "otherFacts": ["...", "..."],
-  "claimsList": "..."
-}
-`;
-
-  try {
-    const content = stripMarkdownFence(
-      await callArkAPI(
-        [{ role: 'system', content: systemPrompt }, { role: 'user', content: text }],
-        0.0
-      )
-    );
-    const parsed = parsePartyExtraction(content);
-    return {
-      plaintiffsNatural: parsed.plaintiffsNatural || [],
-      defendantsNatural: parsed.defendantsNatural || [],
-      defendantsLegal: normalizeLegalPartyList(parsed.defendantsLegal || []),
-      defendantsInsurance: normalizeLegalPartyList(parsed.defendantsInsurance || []),
-      thirdPartyLegal: normalizeLegalPartyList(parsed.thirdPartyLegal || []),
-      claimsText: parsed.claimsText || '',
-      accidentFacts: parsed.accidentFacts || '',
-      liabilityDetermination: parsed.liabilityDetermination || '',
-      insuranceInfo: parsed.insuranceInfo || '',
-      otherFacts: parsed.otherFacts || [],
-      claimsList: parsed.claimsList || '',
-    };
-  } catch (error: unknown) {
-    throw new Error(`当事人信息抽取失败: ${getErrorMessage(error)}`);
   }
 }

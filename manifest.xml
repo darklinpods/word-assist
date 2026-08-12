@@ -10,8 +10,8 @@
   <Version>1.0.0.0</Version>
   <ProviderName>Guangge Developer</ProviderName>
   <DefaultLocale>zh-CN</DefaultLocale>
-  <DisplayName DefaultValue="法律 AI 助手" />
-  <Description DefaultValue="智能诉状纠错与法律建议。"/>
+  <DisplayName DefaultValue="要素式起诉状生成助手" />
+  <Description DefaultValue="将传统式交通事故起诉状转换为要素式起诉状。"/>
   <!-- End Basic Settings -->
 
   <!-- Default settings for old clients -->
@@ -68,11 +68,11 @@
         <bt:Url id="Guangge.Taskpane.Url" DefaultValue="https://localhost:3100/index.html" />
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="Guangge.TaskpaneButton.Label" DefaultValue="启动法律助手" />
-        <bt:String id="Guangge.Group1Label" DefaultValue="AI 工具" />
+        <bt:String id="Guangge.TaskpaneButton.Label" DefaultValue="生成要素式起诉状" />
+        <bt:String id="Guangge.Group1Label" DefaultValue="文书生成" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="Guangge.TaskpaneButton.Tooltip" DefaultValue="打开侧边栏对诉状进行AI分析" />
+        <bt:String id="Guangge.TaskpaneButton.Tooltip" DefaultValue="读取传统式起诉状并生成要素式起诉状" />
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>

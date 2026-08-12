@@ -7,9 +7,12 @@ interface OfficeWarningProps {
 }
 
 export default function OfficeWarning({ officeEnv }: OfficeWarningProps) {
-  if (officeEnv.isOfficeReady) return null
+  if (officeEnv.isWordReady) return null
 
-  const isLoadingState = officeEnv.status === 'loading-script' || officeEnv.status === 'host-not-ready'
+  const isLoadingState =
+    officeEnv.status === 'loading-script' ||
+    officeEnv.status === 'host-not-ready' ||
+    (officeEnv.status === 'ready' && !officeEnv.isWordReady)
   const containerClassName = isLoadingState
     ? 'bg-amber-50 border-amber-200 text-amber-800'
     : 'bg-red-50 border-red-200 text-red-800'

@@ -15,3 +15,7 @@
 
 - [0001-word-format-progressive-enhancement.md](./0001-word-format-progressive-enhancement.md)
 - [0002-runtime-ai-configuration.md](./0002-runtime-ai-configuration.md)
+- [0003-extensible-document-definition.md](./0003-extensible-document-definition.md)
+- [0004-read-only-extraction-preview.md](./0004-read-only-extraction-preview.md)
+- [0005-exclusive-defendant-role-classification.md](./0005-exclusive-defendant-role-classification.md)
+- [0006-non-destructive-document-generation.md](./0006-non-destructive-document-generation.md)

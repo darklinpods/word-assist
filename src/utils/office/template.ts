@@ -79,3 +79,23 @@ export async function insertTemplate(): Promise<void> {
     await context.sync();
   });
 }
+
+/**
+ * 通过模板中的核心表格标题判断当前文档是否已经包含要素式起诉状。
+ */
+export async function hasElementalComplaintTemplate(): Promise<boolean> {
+  assertWordLoaded();
+  return Word.run(async (context) => {
+    const tables = context.document.body.tables;
+    tables.load('items');
+    await context.sync();
+    for (const table of tables.items) table.load('values');
+    await context.sync();
+
+    return tables.items.some((table) =>
+      table.values.some((row) =>
+        row.some((cell) => typeof cell === 'string' && cell.includes('当事人信息')),
+      ),
+    );
+  });
+}
