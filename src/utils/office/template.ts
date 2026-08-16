@@ -39,7 +39,7 @@ function getTextPreview(buffer: ArrayBuffer): string {
   }
 }
 
-async function getTemplateBase64(): Promise<string> {
+export async function getTemplateBase64(): Promise<string> {
   if (templateBase64Cache) return templateBase64Cache;
   if (templateBase64Promise) return templateBase64Promise;
 
@@ -64,20 +64,6 @@ async function getTemplateBase64(): Promise<string> {
   })();
 
   return templateBase64Promise;
-}
-
-/**
- * 将打包的起诉状模板插入当前 Word 文档开头
- */
-export async function insertTemplate(): Promise<void> {
-  assertWordLoaded();
-  const templateBase64 = await getTemplateBase64();
-  return Word.run(async (context) => {
-    const insertedRange = context.document.body.insertFileFromBase64(templateBase64, Word.InsertLocation.start);
-    // 在插入的模板末尾追加分页符，使模板与原有文档内容分页
-    insertedRange.insertBreak(Word.BreakType.page, Word.InsertLocation.after);
-    await context.sync();
-  });
 }
 
 /**
