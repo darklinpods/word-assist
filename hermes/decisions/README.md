@@ -19,3 +19,4 @@
 - [0004-read-only-extraction-preview.md](./0004-read-only-extraction-preview.md)
 - [0005-exclusive-defendant-role-classification.md](./0005-exclusive-defendant-role-classification.md)
 - [0006-non-destructive-document-generation.md](./0006-non-destructive-document-generation.md)
+- [0007-avoid-bookmark-enumeration-on-mac-word.md](./0007-avoid-bookmark-enumeration-on-mac-word.md)

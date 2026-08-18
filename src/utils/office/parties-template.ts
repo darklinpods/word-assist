@@ -1,6 +1,5 @@
 import type { PartyExtraction } from '../../types/parties';
 import { assertWordLoaded } from './environment';
-import { nextGeneratedBookmarkName } from './generated-region';
 import { getTemplateBase64 } from './template';
 
 /**
@@ -39,7 +38,6 @@ async function writeCellBody(cell: Word.TableCell, content: string): Promise<voi
  *
  * 插入模板后，所有标签查找都限定在刚插入的模板范围（insertedRange）内，
  * 避免误匹配原文或文档中已有的其他要素式起诉状。
- * 回填完成后，为整份已生成文书打上书签，供“重新提取”时排除已生成区域。
  */
 export async function insertTemplateAndFill(parties: PartyExtraction): Promise<void> {
   assertWordLoaded();
@@ -53,12 +51,6 @@ export async function insertTemplateAndFill(parties: PartyExtraction): Promise<v
 
     await insertPartiesIntoRange(context, insertedRange, parties);
     await insertContentIntoRange(context, insertedRange, parties);
-
-    try {
-      await bookmarkGeneratedTemplate(context, insertedRange);
-    } catch {
-      // 书签仅用于“重新提取”时排除已生成文书，失败不应阻断文书生成。
-    }
   });
 }
 
@@ -370,25 +362,4 @@ async function insertContentIntoRange(
   await writeToRightCell('交通事故责任认定', parties.liabilityDetermination);
   await writeToRightCell('机动车投保情况', parties.insuranceInfo);
   await writeToRightCell('其他情况', parties.otherFacts.join('\n\n'));
-}
-
-/**
- * 为刚生成的要素式起诉状打上书签，供“重新提取”时排除已生成区域。
- * 书签名带自增序号，多次生成时每份文书都有独立书签，全部会被排除。
- */
-async function bookmarkGeneratedTemplate(
-  context: Word.RequestContext,
-  range: Word.Range,
-): Promise<void> {
-  const bookmarks = context.document.bookmarks;
-  bookmarks.load('items');
-  await context.sync();
-  for (const bookmark of bookmarks.items) bookmark.load('name');
-  await context.sync();
-
-  const names = bookmarks.items.map((bookmark) => bookmark.name);
-  const bookmarkName = nextGeneratedBookmarkName(names);
-
-  range.insertBookmark(bookmarkName);
-  await context.sync();
 }
