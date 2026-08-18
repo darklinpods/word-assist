@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "standard_version": "2025",
+  "region": "湖北省（含武汉市新洲区）",
+  "data_basis": "上一年度（2024年）统计数据，适用于2025年度裁判",
+  "source": "公开渠道整理的湖北省2025年度道路交通事故赔偿标准（需以湖北省统计局及受诉法院最新公布数据核对）",
+  "disclaimer": "本文件为提示词配套数据，使用前请人工核对官方最新口径；武汉市级数据与省级数据存在差异时，以受诉法院适用口径为准",
+  "standards": {
+    "urban_per_capita_disposable_income": 49164,
+    "urban_per_capita_consumption_expenditure": 33376,
+    "avg_wage_agriculture_forestry_husbandry_fishery": 56122,
+    "avg_wage_resident_services": 51558,
+    "avg_wage_province_employed": 93007,
+    "funeral_expense": 46503,
+    "subsidy_per_day_hospital_meal": 50,
+    "subsidy_per_day_nutrition": 50
+  },
+  "derived": {
+    "daily_wage_agriculture": { "value": 154, "formula": "56122 ÷ 365 ≈ 153.8，取整约154" },
+    "daily_wage_resident_services": { "value": 141, "formula": "51558 ÷ 365 ≈ 141.3，取整约141" }
+  },
+  "traffic_insurance_limits": {
+    "liable": { "medical": 18000, "death_disability": 180000, "property": 2000 },
+    "not_liable": { "medical": 1800, "death_disability": 18000, "property": 100 }
+  },
+  "rules": {
+    "disability_compensation_years": "≤60岁按20年；60周岁以上每增1岁减1年；≥75周岁按5年",
+    "disability_coefficient": "十级10%，每升一级+10%，一级100%；多处伤残以最高等级为基础，每处附加2%~10%（湖北实践），合计不超过100%",
+    "mental_damages_reference": "十级约3000元起，逐级递增，一级/死亡最高约50000元，以法院酌定为准",
+    "supported_persons": "被扶养人生活费计入残疾/死亡赔偿金；多个被扶养人时各年度总额不超过城镇居民人均消费支出额；按共同扶养/赡养人人数分摊",
+    "favorable_rule": "受害人为行人/非机动车时，机动车方在责任比例基础上增加10%赔偿责任（湖北司法实践口径，适用于机动车方负同等/主要责任情形，可人工调整）",
+    "deduction_order": "交强险各分项限额内先行赔付 → 商业三者险按责赔付（扣除免赔率/免赔额，不计免赔除外）→ 侵权人承担"
+  },
+  "last_updated": "2025（待核对官方发布）"
+}
